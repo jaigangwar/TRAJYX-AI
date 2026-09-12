@@ -42,13 +42,5 @@ disallow_untyped_defs = false
 ignore_missing_imports = true
 plugins = ["pydantic.mypy"]
 
-[tool.pytest.ini_options]
-testpaths = ["../tests/backend"]
-pythonpath = ["."]
-asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "function"
-addopts = "-q --strict-markers"
-markers = [
-  "integration: exercises more than one subsystem together",
-  "slow: takes more than a couple of seconds",
-]
+# Test configuration lives in the repository-root pytest.ini so it applies
+# regardless of the working directory pytest is invoked from.

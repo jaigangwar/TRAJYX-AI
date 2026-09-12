@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/state_views.dart';
 import '../home/home_screen.dart';
+import '../profile/profile_screen.dart';
 
 /// Bottom-navigation shell.
 ///
@@ -82,11 +83,7 @@ class _AppShellState extends State<AppShell> {
           description: 'Past trips with the route travelled, alerts received and hazards reported.',
         );
       default:
-        return const _PendingScreen(
-          title: 'Profile',
-          phase: 1,
-          description: 'Account, sign-out, alert thresholds and voice-warning preferences.',
-        );
+        return const ProfileScreen();
     }
   }
 }

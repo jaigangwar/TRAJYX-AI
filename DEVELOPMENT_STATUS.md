@@ -6,9 +6,205 @@ what was actually verified. It is updated at the end of every phase.
 Anything not listed as complete below does not exist, regardless of how the
 interface may look.
 
-**Last updated:** Phase 0 completion
-**Current phase:** 0 of 20 — complete
-**Next phase:** 1 — Authentication, roles and database layer
+**Last updated:** Phase 1 completion
+**Current phase:** 1 of 20 — complete
+**Next phase:** 2 — Web dashboard foundation
+
+## Verification summary
+
+`python scripts/verify.py` — 9/9 checks pass.
+
+| Component | Check | Result |
+|-----------|-------|--------|
+| contracts | generated bindings current | PASS |
+| lint | ruff (backend, cv, ml, scripts, tests) | PASS — 0 findings |
+| python | pytest | PASS — 153 tests |
+| web | oxlint | PASS — 0 warnings |
+| web | tsc typecheck (strict) | PASS — 0 errors |
+| web | vitest | PASS — 44 tests |
+| web | production build | PASS |
+| mobile | dart analyze | PASS — 0 issues |
+| mobile | flutter test | PASS — 19 tests |
+
+**216 automated tests.** Plus a real-browser end-to-end sign-in check
+(`web/scripts/e2e-login.mjs`, 7/7).
+
+---
+
+## Phase 1 — Authentication, roles & database · COMPLETE
+
+### Persistence
+
+- `DocumentStore` interface with a restricted operator set, cursor paging and
+  typed filter/query builders. Offset paging is deliberately absent — Firestore
+  cannot serve it, so offering it would mean a query that works in development
+  and fails in production.
+- `LocalDocumentStore` — on-disk JSON, one file per collection, per-collection
+  `asyncio.Lock`, atomic writes through a temp file plus `os.replace`, file I/O
+  on a worker thread. Datetimes are tagged on write so they come back as
+  `datetime` rather than degrading to strings, which would silently turn every
+  later comparison into a string comparison.
+- `FirestoreDocumentStore` — same interface. Blocking SDK calls dispatched to
+  threads, `DatetimeWithNanoseconds` normalised, 500-write batching,
+  server-side `count()`, and transport failures translated to
+  `DEPENDENCY_UNAVAILABLE` instead of an opaque 500.
+- `ObjectStorage` interface with local and Firebase Storage adapters, key
+  validation against path traversal, and a centralised key layout so the code
+  and `firebase/storage.rules` cannot drift apart.
+
+### Identity
+
+- `AuthProvider` interface with two implementations chosen by
+  `TRAJYX_AUTH_BACKEND`. Both run through the same authorisation dependencies,
+  so the checks that actually protect CCTV-derived data are the ones under test.
+- `LocalAuthProvider` — bcrypt credentials, signed JWT sessions. The role is
+  re-read from the store on every request, so a role change or a suspension
+  takes effect immediately rather than waiting for the token to expire.
+- `FirebaseAuthProvider` — ID-token verification with `check_revoked`, the role
+  stored as a Firebase custom claim (which is what lets the Firestore rules
+  enforce roles without reading a user document), claim/document mismatch
+  repair, and first-sign-in provisioning at the least-privileged role.
+- `PasswordHasher` — bcrypt used directly. Passwords are SHA-256 plus base64
+  pre-hashed to a fixed 44 bytes, so a long passphrase cannot be silently
+  truncated at bcrypt's 72-byte limit. An unknown address is verified against a
+  dummy hash of the same cost, so login timing does not reveal which addresses
+  are registered. Cost is configurable and floored at 10 outside tests.
+
+### Authorisation
+
+- Dependencies: `require_staff`, `require_admin`, `require_operator`,
+  `require_analyst`, `require_driver`, `require_roles(...)`, and
+  `require_self_or_admin` for per-user resources.
+- Enforced server-side on every protected route. The dashboard also hides
+  sections a role cannot use, but that is convenience — a hand-written request
+  is refused identically.
+
+### API surface (17 routes)
+
+- `POST /auth/login`, `POST /auth/firebase`, `GET|PATCH /auth/me`,
+  `POST /auth/register`, `POST /auth/bootstrap-admin`,
+  `POST /auth/change-password`, `POST /auth/logout`.
+- `GET|POST /users`, `GET /users/{id}`, `PATCH /users/{id}/role`,
+  `PATCH /users/{id}/status`, `DELETE /users/{id}`.
+- Invariants live in `UserService`, not in handlers: the last administrator
+  cannot be demoted, suspended or deleted; a staff-role downgrade revokes
+  sessions immediately; self-service edits cannot reach role or status, because
+  the request schema has no such fields.
+
+### Web
+
+- Session verified against `/auth/me` before the app renders, so the role
+  driving every permission check comes from the server, never from the stored
+  copy. A tampered `localStorage` entry therefore grants nothing.
+- The token lives in a module-scoped holder rather than a React ref: it is not
+  render state, and keeping the API client in step meant reading a ref during
+  render, which is the pattern React warns about.
+- Login page, `RequireAuth` / `RequireStaff` / `RequireRole` guards that read
+  the same role lists `navigation.ts` declares, profile menu with sign-out, and
+  a driver-notice page for valid accounts that belong in the mobile app.
+- Session in `localStorage`, or `sessionStorage` when "remember me" is off. The
+  trade-off against an HttpOnly cookie is documented in `session-store.ts`.
+
+### Mobile
+
+- Session stored in the Android Keystore via `flutter_secure_storage`, not
+  cleartext preferences — a bearer token in plain preferences is readable by
+  anything with filesystem access on a rooted device.
+- `AuthController` state machine: restoring → signed in / signed out, with a
+  splash so a returning driver never sees the login form flash.
+- Offline at launch keeps the stored session, because a dead connection on the
+  road must not lock a driver out of cached risk zones.
+- Login and registration screen, profile screen with sign-out confirmation, and
+  a staff account signing into the driver app is turned away with an
+  explanation rather than a permission error.
+
+### Tooling
+
+- `scripts/seed_admin.py` — the supported bootstrap path, including in
+  production. Refuses once any administrator exists.
+- Root `pytest.ini`, replacing the config under `backend/pyproject.toml`.
+- `web/scripts/e2e-login.mjs` — real-browser end-to-end sign-in check.
+
+### End-to-end verification
+
+Against a live API using the local adapters:
+
+- `seed_admin.py` created the first administrator. The stored record was
+  inspected and contains a bcrypt hash at cost 12 and **no plaintext**.
+- Login returns a usable token; `/auth/me` returns the profile; no token → 401;
+  wrong password → 401; admin creates an operator → 201; operator lists users →
+  **403**; operator creates an admin → **403**; operator PATCHes their own role
+  → **422**; a second bootstrap attempt → **403**.
+- Real browser, 7/7: protected route redirects to login, sign-in reaches the
+  dashboard, live API data renders, session survives a reload, profile menu
+  shows the identity, sign-out clears storage, the route is protected again
+  afterwards. No console errors.
+
+### Bugs found and fixed
+
+1. **passlib is unusable with bcrypt 5.x.** Its backend probe hashes a
+   >72-byte secret, which bcrypt now rejects, so every import of the auth
+   module raised. Replaced with `bcrypt` directly plus pre-hashing.
+2. **A 422 echoed the submitted password.** The validation handler passed
+   `exc.errors()` straight into the response, and each entry carries the
+   offending `input` — so a rejected registration returned the caller's
+   password in the body, and into any log that records responses. Now only
+   `loc`, `msg` and `type` are copied. Regression test added.
+3. **A custom validator failure returned 500 instead of 422.** Pydantic puts
+   the original exception object in `ctx`, which is not JSON-serialisable.
+   Same fix; regression test added.
+4. **Public registration accepted weaker passwords than the admin endpoint.**
+   The strength rule lived only on `UserCreateRequest`, so `/auth/register`
+   accepted `alllowercase`. Extracted into a shared `StrongPassword` type used
+   by every path that sets a password.
+5. **42 async tests were silently skipped.** pytest resolved rootdir to the
+   repository root and so never read `backend/pyproject.toml`; `asyncio_mode`
+   was unset, every async test was skipped, and the run still reported green.
+   Config moved to a root `pytest.ini`.
+6. **`change-password` took the password as a query parameter**, where it would
+   be recorded in access logs, proxy logs and browser history. Moved to a
+   request body. (Found alongside FastAPI rejecting `Annotated` combined with a
+   `Depends` default.)
+7. **The bcrypt cost made the suite unusable.** 71 tests took 144 seconds at
+   cost 12. Cost is now configurable, 4 in tests and floored at 10 everywhere
+   else: 12 seconds for the same tests.
+8. Riverpod 3 removed `AsyncValue.valueOrNull`; a mobile test stub was not a
+   real `SocketException`, so the offline path was never actually exercised.
+
+### Known limitations
+
+- **The Firebase paths are untested against a live project.** Both adapters are
+  written and reviewed, and the local paths carry 216 tests, but no Firebase
+  project has been connected. Deploying the rules and exercising the emulator is
+  outstanding.
+- **Local JWTs cannot be revoked individually.** They are stateless, so
+  `/auth/logout` cannot invalidate a specific token — the client discards it and
+  it expires on schedule. Suspension *is* immediate, because the user document
+  is re-read per request. This is one reason the local backend is refused in
+  production.
+- **No rate limiting on sign-in.** Timing is equalised and messages do not
+  reveal whether an address exists, but nothing throttles repeated attempts.
+  Phase 19.
+- **No password reset or email verification** on the local path. Firebase
+  provides both; the local provider is development-only.
+- **No audit log.** Role and status changes are logged through structlog but not
+  persisted as queryable records. Phase 19.
+- **The dashboard still shows no traffic data.** Overview reports platform state
+  only. KPIs arrive in phase 2, once there is data behind them.
+- **`flutter pub get` prints desktop-plugin warnings.** Cosmetic: the project is
+  Android-only, so Flutter cannot resolve the Windows/Linux default
+  implementations of `path_provider`. Android builds are unaffected.
+
+### Next phase
+
+**Phase 2 — Web dashboard foundation**
+
+- Camera registry with CRUD, location and road-segment assignment.
+- Overview KPIs backed by real stored records.
+- Events page built on the shared event model.
+- Base map with the camera layer.
+- Settings page: users, alert thresholds, retention, demo mode.
+- A reusable `DataTable` with sorting, filtering and the four data states.
 
 ---
 
@@ -18,225 +214,97 @@ interface may look.
 
 **Monorepo and tooling**
 
-- Repository structure: `backend/`, `web/`, `mobile/`, `cv/`, `ml/`,
-  `shared/`, `firebase/`, `scripts/`, `tests/`, `docs/`, `models/`,
-  `datasets/`, `assets/`.
-- Git initialised with `.gitignore` covering secrets, virtualenvs,
-  `node_modules`, Flutter build output, model weights and video files; and
-  `.gitattributes` normalising line endings.
-- `scripts/verify.py` — runs all 10 checks across five components and prints
-  one summary. Missing toolchains report `SKIP`, not `FAIL`.
-- `scripts/dev_api.py` — starts the API with reload, using the repo venv
+- Structure: `backend/`, `web/`, `mobile/`, `cv/`, `ml/`, `shared/`,
+  `firebase/`, `scripts/`, `tests/`, `docs/`, `models/`, `datasets/`,
+  `assets/`.
+- `.gitignore` covering secrets, virtualenvs, `node_modules`, Flutter build
+  output, model weights and video; `.gitattributes` normalising line endings.
+- `scripts/verify.py` — every check across all components, one summary.
+  A missing toolchain reports `SKIP`, not `FAIL`.
+- `scripts/dev_api.py` — starts the API with reload using the repo venv,
   without requiring shell activation.
-- Root `package.json` with orchestration scripts.
 
 **Shared domain contract**
 
-- `shared/contracts/domain.json` — single source of truth: 16 enums, risk
-  bands, TTC bands, alert-threshold defaults, event-category map, 18 Firestore
+- `shared/contracts/domain.json` — the single source of truth: 16 enums, risk
+  bands, TTC bands, alert-threshold defaults, event-category map, and 18
   collection names.
 - `scripts/gen_contracts.py` generates TypeScript, Python and Dart bindings,
-  with a `--check` mode that fails the build when any binding is stale.
-- Risk banding (`0-25 LOW`, `26-50 MODERATE`, `51-75 HIGH`, `76-100 CRITICAL`)
-  is implemented once per language from the same source and tested identically
-  in all three.
+  with `--check` failing the build when any binding is stale. Risk banding is
+  therefore defined once and tested identically in three languages.
 
-**Backend (FastAPI)**
+**Backend**
 
 - Application factory with lifespan validation, CORS, security headers, and a
   request-context middleware that assigns and echoes `X-Request-ID`.
-- Environment-driven settings (`backend/app/core/config.py`) with **no**
-  hardcoded URLs or secrets, and `auto` resolution of the data, auth and
-  storage adapters.
-- Error taxonomy with a single JSON envelope
-  (`{"error": {"code", "message", "details", "request_id"}}`) and handlers for
-  application errors, validation failures, HTTP errors and unexpected
-  exceptions. Internal details never reach the client; tracebacks are logged.
-- Structured logging via structlog — console in development, JSON in
-  staging/production, request id bound to the context.
-- `GET /api/v1/health` reports the *resolved* adapter for each subsystem plus
-  human-readable warnings for every degraded mode.
-- Startup **fails** in production on the default JWT secret, a local adapter,
-  or a wildcard CORS origin.
+- Environment-driven settings with no hardcoded URLs or secrets, and `auto`
+  resolution of the data, auth and storage adapters.
+- One error envelope with a typed taxonomy; internals are logged, never
+  returned.
+- Structured logging: console in development, JSON in staging and production.
+- `GET /api/v1/health` reports the *resolved* adapter per subsystem plus a
+  human-readable warning for each degraded mode.
+- Startup fails in production on the default JWT secret, a local adapter, or a
+  wildcard CORS origin.
 
-**Web dashboard (React 19 + TypeScript + Vite 8)**
+**Web dashboard**
 
-- Design system in `web/src/styles/`: layered charcoal surfaces, single teal
-  brand accent taken from the logo, the safety ramp reserved for risk
-  semantics, 2-6px radii, 1px borders, compact 11-13px type scale, tabular
-  numerals. Full light theme via token overrides, dark by default.
-- Dashboard shell: collapsible navigation rail with role-grouped sections, top
-  bar with live capability chips (demo mode, data backend, environment) and a
-  theme toggle.
-- Routing for all 12 dashboard sections with role-based visibility declared
-  once in `web/src/app/navigation.ts`.
-- Overview page wired to the real `/health` endpoint — every value shown comes
-  from the API.
-- Four-state UX contract enforced by `AsyncBoundary`: loading, error, empty,
-  content. No data region can render blank.
-- Typed API client with error-envelope decoding, Zod response validation,
-  request-id propagation and a pluggable token provider.
-- `PhasePendingPage` for unimplemented sections — states which phase delivers
-  the feature and shows no invented metrics.
-- Hand-drawn 16px icon set (37 glyphs) and inline-SVG brand mark; no icon
+- Design system: layered charcoal surfaces, the brand teal as the only accent,
+  the safety ramp reserved for risk semantics, 2-6px radii, 1px borders, an
+  11-13px type scale, tabular numerals. Full light theme via token overrides.
+- Shell with a collapsible role-grouped navigation rail, top bar with live
+  capability chips, and a theme toggle.
+- Routes for all 12 sections with role visibility declared once in
+  `navigation.ts`; a test asserts the menu and router cannot drift.
+- Four-state UX contract enforced by `AsyncBoundary`, so no data region can
+  render blank.
+- Typed API client with error-envelope decoding, Zod response validation and
+  request-id propagation.
+- `PhasePendingPage` naming the delivering phase, with no invented metrics.
+- Hand-drawn 16px icon set (37 glyphs) and an inline-SVG brand mark; no icon
   library dependency.
 
-**Mobile driver app (Flutter 3.41)**
+**Mobile**
 
-- Android project, `com.trajyx` organisation, dark-only Material 3 theme
-  mirroring the web tokens, 52px touch targets, tabular figures for live
-  readouts.
-- Six-destination bottom navigation (Home, Trip, Alerts, Safety, History,
-  Profile).
-- Home screen reaches the real API and reports platform state; shows the
-  `DEMO DATA` chip when the backend has demo mode on.
-- API client decoding the shared error envelope, distinguishing offline from
-  server failure.
-- Loading, empty and error views; `TrajyxMark` painted with `CustomPainter` so
-  the brand is resolution-independent.
-- Unimplemented tabs render an honest "not implemented yet" panel naming the
-  phase.
+- Android project, dark-only Material 3 theme mirroring the web tokens, 52px
+  touch targets, tabular figures for live readouts.
+- Six-destination bottom navigation; `TrajyxMark` painted with `CustomPainter`
+  so the brand is resolution-independent.
 
-**CV package**
+**CV and ML packages**
 
-- Coordinate conventions fixed and documented once: pixel origin top-left,
-  `xyxy` boxes, angles in `[0, 360)` clockwise from image-up (matching compass
-  bearing so image-space and GPS headings share one comparison function).
-- `BoundingBox` with IoU, containment, clipping, and a `bottom_center`
-  ground-contact reference point.
-- `Detection`, `FrameMeta`, `TrackPoint`, `Track` — plain slotted dataclasses,
-  sized for per-frame allocation rather than API validation.
-- `Track` class assignment by majority vote, so one misread frame cannot change
+- Coordinate conventions fixed once: pixel origin top-left, `xyxy` boxes,
+  angles in `[0, 360)` clockwise from image-up — matching compass bearing, so
+  image-space and GPS headings share one comparison function.
+- `BoundingBox` with IoU, containment, clipping and a `bottom_center`
+  ground-contact reference point; slotted dataclasses sized for per-frame
+  allocation.
+- Track class assignment by majority vote, so one misread frame cannot change
   a vehicle's class.
-- `Detector` and `Tracker` protocols with provenance types, so YOLO and
-  ByteTrack are replaceable without touching downstream stages.
-- COCO class mapping that deliberately returns `None` for classes the stock
-  weights cannot distinguish (scooter, auto-rickshaw) rather than inventing a
-  capability.
+- `Detector` and `Tracker` protocols with provenance types. COCO mapping
+  returns `None` for classes the stock weights cannot distinguish (scooter,
+  auto-rickshaw) rather than inventing a capability.
 
-**ML package**
+**Firebase**
 
-- Package structure for datasets, features, training, evaluation and
-  inference, with the training/inference feature-parity rule documented at the
-  package level.
-
-**Firebase configuration**
-
-- `firestore.rules` — deny by default; per-collection role rules; analysis
-  output is `allow write: if false` for every client role; a user cannot change
-  their own role.
-- `storage.rules` — staff-only footage and evidence; drivers may write only
-  images, only into their own folder, capped at 12 MiB; the 512 MiB video cap
-  mirrors the backend setting.
-- `firestore.indexes.json` — 15 composite indexes, each annotated with the
-  query that requires it.
-- `firebase.json` with emulator ports; service-account template with the real
-  path gitignored.
-
-**Documentation**
-
-- `README.md`, `docs/architecture.md`, `docs/local-setup.md`,
-  `docs/firebase-setup.md`, this file.
-- `backend/.env.example` and `web/.env.example`, both fully commented.
+- Deny-by-default Firestore rules; analysis output is unwritable by every
+  client role; a user cannot change their own role.
+- Storage rules keep footage staff-only and cap driver uploads to images.
+- 15 composite indexes, each annotated with the query that requires it.
 
 ### Tests run
 
-All green, via `python scripts/verify.py`:
+10/10 checks — 82 automated tests across backend, cv, web and mobile, plus
+ruff, oxlint, strict tsc, dart analyze and a production web build. Dashboard
+render verified by screenshot at 1600×1000 with no console errors.
 
-| Component | Check | Result |
-|-----------|-------|--------|
-| contracts | generated bindings current (`--check`) | PASS |
-| backend | ruff lint (`backend cv ml scripts tests`) | PASS — 0 findings |
-| backend | pytest | PASS — 10 tests |
-| cv | pytest | PASS — 39 tests |
-| web | oxlint | PASS — 0 warnings |
-| web | tsc typecheck (strict) | PASS — 0 errors |
-| web | vitest | PASS — 25 tests |
-| web | production build | PASS |
-| mobile | dart analyze | PASS — 0 issues |
-| mobile | flutter test | PASS — 8 tests |
-
-**Total: 82 automated tests, 10/10 checks passing.**
-
-Test coverage worth noting:
-
-- Risk banding verified at every documented boundary in all three languages.
-- Navigation and router asserted to agree, so a section cannot be routable
-  without a menu entry or vice versa.
-- Role permissions asserted per role (operators excluded from analyst
-  sections, drivers given no dashboard sections, settings admin-only).
-- The four data states asserted against a stubbed network, including that the
-  error envelope's code and message reach the screen.
-- Placeholder pages asserted to state they are unimplemented.
-- Bearing arithmetic verified across the 0/360 wrap point, the case a naive
-  implementation gets wrong.
-- Production configuration guards asserted to reject the default secret and
-  local adapters.
-
-### Manual verification
-
-- API booted under uvicorn; `/`, `/api/v1/health`, `/api/v1/health/live`
-  returned correct payloads; degraded-mode warnings present and accurate.
-- Dashboard rendered at 1600×1000 via Playwright and inspected: live API
-  values displayed, capability chips correct, no console errors.
-- Both servers run together; the dashboard reads the backend over CORS.
-
-### Bugs found and fixed during this phase
+### Bugs found and fixed
 
 1. `structlog` configured with `WriteLoggerFactory` while using
-   `add_logger_name`, which needs a stdlib logger — crashed every request.
-   Switched to `stdlib.LoggerFactory` so uvicorn and structlog share one sink.
+   `add_logger_name`, which needs a stdlib logger — this crashed every request.
 2. `average_bearing` returned `360.0` instead of `0.0` when averaging across
    north, because `% 360` on a tiny negative float yields `360.0`, outside the
-   documented `[0, 360)` range. Added `normalize_bearing` with an epsilon
-   guard; both bearing functions now use it.
+   documented `[0, 360)` range.
 3. Two React fast-refresh warnings from exporting hooks beside components.
-   Split `theme-context.ts` and `page-meta-context.ts` out of their provider
-   files.
-4. TypeScript 6 deprecation of `baseUrl`, and Rollup 8 rejecting the object
-   form of `manualChunks`. Switched to relative `paths` and a function.
-
-### Known limitations
-
-These are intentional at Phase 0, not defects:
-
-- **No authentication.** The dashboard renders with a hardcoded `ADMIN` role
-  (`PHASE_0_ROLE` in `web/src/app/routes.tsx`) so the shell and permission
-  tables can be exercised. Phase 1 replaces it with a real session.
-- **No persistence in use.** The repository layer and local document store are
-  designed but not implemented; nothing is written to disk yet. Phase 1.
-- **No CV implementation.** `Detector` and `Tracker` are protocols only. No
-  YOLO weights, no video decoding, no tracking. Phases 4-5.
-- **No risk engine, no map, no analytics, no reports.** Phases 8-11, 16.
-- **Mobile shows no safety score.** There are no risk zones to compute one
-  from. Phases 13-14.
-- **Firebase rules are unverified against a live project.** They are written
-  and syntactically reviewed but have not been deployed or exercised with the
-  emulator. Phase 1.
-- **`torch` is not installed.** `cv/requirements.txt` deliberately leaves it
-  unpinned because the correct build depends on the target accelerator, and a
-  wrong pin silently degrades to CPU inference.
-- **The web bundle is a single 458 kB chunk.** The `manualChunks` splitting is
-  configured but has nothing to split yet, since no page imports MapLibre,
-  Recharts or Three.js.
-- **Light theme is untested visually.** Tokens are defined and the toggle
-  works; no screenshot review has been done.
-
-### Next phase
-
-**Phase 1 — Authentication, roles and database layer**
-
-Planned scope:
-
-- Repository interfaces plus both adapters: Firestore and local JSON store.
-- Firebase Admin initialisation with token verification; local development
-  token issuance as the fallback path.
-- Four roles (`ADMIN`, `TRAFFIC_OPERATOR`, `ANALYST`, `DRIVER`) as custom
-  claims, mirrored into user documents.
-- FastAPI dependencies for authentication and role authorisation.
-- `POST /auth/login`, `POST /auth/refresh`, `GET /auth/me`, user management
-  endpoints.
-- Web auth context, login page, route guards, session persistence.
-- Mobile login and session storage.
-- Verification: login, logout, role restrictions enforced server-side (not
-  only hidden in the UI), and database reads and writes through both adapters.
+4. TypeScript 6 deprecating `baseUrl`, and Rollup 8 rejecting the object form
+   of `manualChunks`.

@@ -2,10 +2,28 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'network/api_client.dart';
 
+/// The current bearer token.
+///
+/// Held here rather than read out of the auth state so the API client can
+/// depend on the token alone, without depending on the auth feature — which
+/// would be a cycle, since the auth repository needs the client.
+class AuthTokenNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void set(String? token) => state = token;
+}
+
+final authTokenProvider = NotifierProvider<AuthTokenNotifier, String?>(AuthTokenNotifier.new);
+
 /// Shared API client. Feature providers depend on this rather than
 /// constructing their own, so tests can override it in one place.
 final apiClientProvider = Provider<ApiClient>((ref) {
-  final client = ApiClient();
+  final client = ApiClient(
+    // Read lazily on each request, so a sign-in mid-session is picked up
+    // without the client being rebuilt.
+    tokenProvider: () async => ref.read(authTokenProvider),
+  );
   ref.onDispose(client.close);
   return client;
 });

@@ -43,17 +43,15 @@ class Check:
 def build_checks() -> list[Check]:
     web = ROOT / "web"
     mobile = ROOT / "mobile"
-    backend = ROOT / "backend"
 
     return [
         Check("contracts", "generated bindings are current",
               [PYTHON, "scripts/gen_contracts.py", "--check"], ROOT),
-        Check("backend", "ruff lint",
+        Check("lint", "ruff",
               [PYTHON, "-m", "ruff", "check", "backend", "cv", "ml", "scripts", "tests"], ROOT),
-        Check("backend", "pytest",
-              [PYTHON, "-m", "pytest", "-q"], backend),
-        Check("cv", "pytest",
-              [PYTHON, "-m", "pytest", "tests/cv", "-q"], ROOT),
+        # One pytest run from the root: pytest.ini declares every test path,
+        # and invoking from elsewhere would change rootdir and drop the config.
+        Check("python", "pytest", [PYTHON, "-m", "pytest"], ROOT),
         Check("web", "oxlint", ["npm", "run", "--silent", "lint"], web, requires="npm"),
         Check("web", "typecheck", ["npm", "run", "--silent", "typecheck"], web, requires="npm"),
         Check("web", "vitest", ["npm", "run", "--silent", "test"], web, requires="npm"),
@@ -96,7 +94,7 @@ def run(check: Check) -> tuple[str, float, str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run all TRAJYX checks.")
     parser.add_argument("--only", action="append", metavar="COMPONENT",
-                        help="limit to a component (contracts, backend, cv, web, mobile)")
+                        help="limit to a component (contracts, lint, python, web, mobile)")
     parser.add_argument("--list", action="store_true", help="list checks and exit")
     args = parser.parse_args()
 

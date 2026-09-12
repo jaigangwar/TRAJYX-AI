@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/theme/tokens.dart';
-import 'features/shell/app_shell.dart';
+import 'features/shell/auth_gate.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,7 +36,7 @@ class TrajyxApp extends StatelessWidget {
       // glare hazard for night driving.
       darkTheme: AppTheme.dark(),
       themeMode: ThemeMode.dark,
-      home: const AppShell(),
+      home: const AuthGate(),
     );
   }
 }

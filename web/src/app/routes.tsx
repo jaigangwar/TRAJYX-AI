@@ -5,34 +5,58 @@
  * menu and the router cannot drift apart — a test asserts the two agree.
  * Sections that are not implemented yet render `PhasePendingPage`, which says
  * so plainly instead of showing invented data.
+ *
+ * Each section is additionally wrapped in `RequireRole` with the same role list
+ * `navigation.ts` declares, so a deep link cannot reach a section the sidebar
+ * hides. The API enforces the same boundaries independently — these guards
+ * decide what is *rendered*, not what is *permitted*.
  */
 
 import { Navigate, type RouteObject } from "react-router-dom";
 
-import { DashboardLayout } from "@/layouts/DashboardLayout";
+import { NAV_ITEMS } from "@/app/navigation";
+import { LoginPage } from "@/features/auth/LoginPage";
+import { RequireRole, RequireStaff } from "@/features/auth/guards";
+import { AuthenticatedDashboard } from "@/layouts/AuthenticatedDashboard";
+import { DriverNoticePage } from "@/pages/DriverNoticePage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { OverviewPage } from "@/pages/OverviewPage";
 import { PhasePendingPage } from "@/pages/PhasePendingPage";
 
 /**
- * Role of the signed-in user. Phase 1 replaces this with the auth context;
- * until then the shell renders the full staff navigation so the layout,
- * routing and permission tables can be exercised.
+ * Wrap a section in the role list `navigation.ts` declares for it.
+ *
+ * Reading the roles from the nav table rather than repeating them here means
+ * the menu and the guard cannot disagree — if they could, one of them would
+ * eventually be wrong, and the wrong one to trust is the guard.
  */
-const PHASE_0_ROLE = "ADMIN" as const;
+function guarded(path: string, element: React.ReactNode): React.ReactNode {
+  const item = NAV_ITEMS.find((entry) => entry.path === path);
+  if (!item) {
+    throw new Error(`Route ${path} has no entry in NAV_ITEMS; add one or remove the route.`);
+  }
+  return <RequireRole roles={item.roles}>{element}</RequireRole>;
+}
 
 export const routes: RouteObject[] = [
+  { path: "/login", element: <LoginPage /> },
+  { path: "/driver-notice", element: <DriverNoticePage /> },
   {
     path: "/",
-    element: <DashboardLayout role={PHASE_0_ROLE} />,
+    element: (
+      <RequireStaff>
+        <AuthenticatedDashboard />
+      </RequireStaff>
+    ),
     children: [
       { index: true, element: <Navigate to="/overview" replace /> },
 
-      { path: "overview", element: <OverviewPage /> },
+      { path: "overview", element: guarded("/overview", <OverviewPage />) },
 
       {
         path: "monitoring",
-        element: (
+        element: guarded(
+          "/monitoring",
           <PhasePendingPage
             title="Live Monitoring"
             path="/monitoring"
@@ -43,12 +67,13 @@ export const routes: RouteObject[] = [
               "Single-camera detail view with recent events and detections",
               "Video-file simulation for cameras without a live stream, clearly labeled",
             ]}
-          />
+          />,
         ),
       },
       {
         path: "analysis",
-        element: (
+        element: guarded(
+          "/analysis",
           <PhasePendingPage
             title="Video Analysis"
             path="/analysis"
@@ -59,12 +84,13 @@ export const routes: RouteObject[] = [
               "Analysis panel: counts, violations, near misses, collision risk, density",
               "Event timeline with click-to-seek",
             ]}
-          />
+          />,
         ),
       },
       {
         path: "cameras",
-        element: (
+        element: guarded(
+          "/cameras",
           <PhasePendingPage
             title="Cameras"
             path="/cameras"
@@ -75,13 +101,14 @@ export const routes: RouteObject[] = [
               "Calibration state, which gates speed estimation",
               "Per-camera processing history",
             ]}
-          />
+          />,
         ),
       },
 
       {
         path: "risk-map",
-        element: (
+        element: guarded(
+          "/risk-map",
           <PhasePendingPage
             title="Risk Map"
             path="/risk-map"
@@ -92,12 +119,13 @@ export const routes: RouteObject[] = [
               "Filters: risk level, event type, time range, camera, road",
               "Hotspot detail: score, contributing factors, peak time, recent events",
             ]}
-          />
+          />,
         ),
       },
       {
         path: "violations",
-        element: (
+        element: guarded(
+          "/violations",
           <PhasePendingPage
             title="Violations"
             path="/violations"
@@ -108,12 +136,13 @@ export const routes: RouteObject[] = [
               "Evidence drawer with the source frame and detection metadata",
               "Operator review workflow: confirm or reject",
             ]}
-          />
+          />,
         ),
       },
       {
         path: "near-misses",
-        element: (
+        element: guarded(
+          "/near-misses",
           <PhasePendingPage
             title="Near Misses"
             path="/near-misses"
@@ -124,12 +153,13 @@ export const routes: RouteObject[] = [
               "Evidence clip and snapshot",
               "Severity-coloured risk presentation",
             ]}
-          />
+          />,
         ),
       },
       {
         path: "incidents",
-        element: (
+        element: guarded(
+          "/incidents",
           <PhasePendingPage
             title="Incidents"
             path="/incidents"
@@ -140,12 +170,13 @@ export const routes: RouteObject[] = [
               "Map view of reported hazards",
               "Confirmed reports feed back into road-segment risk",
             ]}
-          />
+          />,
         ),
       },
       {
         path: "analytics",
-        element: (
+        element: guarded(
+          "/analytics",
           <PhasePendingPage
             title="Analytics"
             path="/analytics"
@@ -156,13 +187,14 @@ export const routes: RouteObject[] = [
               "Traffic composition by vehicle class",
               "Helmet compliance, hard-braking and wrong-way frequency",
             ]}
-          />
+          />,
         ),
       },
 
       {
         path: "reports",
-        element: (
+        element: guarded(
+          "/reports",
           <PhasePendingPage
             title="Reports"
             path="/reports"
@@ -173,12 +205,13 @@ export const routes: RouteObject[] = [
               "PDF rendering where practical",
               "Report history with the parameters each run used",
             ]}
-          />
+          />,
         ),
       },
       {
         path: "model-health",
-        element: (
+        element: guarded(
+          "/model-health",
           <PhasePendingPage
             title="Model Health"
             path="/model-health"
@@ -189,12 +222,13 @@ export const routes: RouteObject[] = [
               "Measured inference latency",
               "Health state: healthy, warning, needs attention",
             ]}
-          />
+          />,
         ),
       },
       {
         path: "settings",
-        element: (
+        element: guarded(
+          "/settings",
           <PhasePendingPage
             title="Settings"
             path="/settings"
@@ -205,7 +239,7 @@ export const routes: RouteObject[] = [
               "Data retention windows",
               "Demo mode control and demo-data purge",
             ]}
-          />
+          />,
         ),
       },
     ],

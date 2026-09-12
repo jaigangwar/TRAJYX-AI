@@ -21,6 +21,11 @@ dependencies:
   # Date, number and distance formatting.
   intl: ^0.20.2
 
+  # Session token storage. Backed by the Android Keystore rather than plain
+  # SharedPreferences, because a bearer token in cleartext preferences is
+  # readable by anything with filesystem access on a rooted device.
+  flutter_secure_storage: ^9.2.4
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

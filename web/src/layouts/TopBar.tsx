@@ -10,6 +10,7 @@ import { useTheme } from "@/app/theme-context";
 import { Badge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
 import { useHealth } from "@/features/system/api";
+import { ProfileMenu } from "@/layouts/ProfileMenu";
 
 interface TopBarProps {
   title: string;
@@ -51,6 +52,8 @@ export function TopBar({ title, subtitle, actions }: TopBarProps) {
       >
         <Icon name={theme === "dark" ? "sun" : "moon"} size={15} />
       </button>
+
+      <ProfileMenu />
     </header>
   );
 }

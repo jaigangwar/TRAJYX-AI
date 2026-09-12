@@ -20,6 +20,8 @@ from typing import Literal
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.core.password import MINIMUM_PRODUCTION_ROUNDS
+
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 REPO_ROOT = BACKEND_DIR.parent
 
@@ -120,6 +122,17 @@ class Settings(BaseSettings):
     )
     jwt_algorithm: Literal["HS256"] = "HS256"
     access_token_ttl_minutes: int = 60 * 12
+
+    bcrypt_rounds: int = Field(
+        default=12,
+        ge=4,
+        le=16,
+        description=(
+            "bcrypt work factor. 12 is roughly 250 ms per hash. Lowered only in "
+            "the test environment, where the cost buys nothing and dominates "
+            "the suite runtime; a floor is enforced everywhere else."
+        ),
+    )
 
     # ------------------------------------------------------------- uploads
     max_upload_bytes: int = Field(
@@ -246,6 +259,11 @@ class Settings(BaseSettings):
                 errors.append("Local data backend is not permitted in production. Configure Firestore.")
             if "*" in self.cors_origins:
                 errors.append("Wildcard CORS origin is not permitted in production.")
+        if self.environment is not Environment.TEST and self.bcrypt_rounds < MINIMUM_PRODUCTION_ROUNDS:
+            errors.append(
+                f"TRAJYX_BCRYPT_ROUNDS must be at least {MINIMUM_PRODUCTION_ROUNDS} outside tests "
+                f"(got {self.bcrypt_rounds})."
+            )
         if self.frame_stride < 1:
             errors.append("TRAJYX_FRAME_STRIDE must be >= 1.")
         if self.max_upload_bytes <= 0:

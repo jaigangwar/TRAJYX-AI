@@ -6,6 +6,7 @@ import { AppErrorBoundary } from "@/app/ErrorBoundary";
 import { ThemeProvider } from "@/app/ThemeProvider";
 import { createQueryClient } from "@/app/queryClient";
 import { routes } from "@/app/routes";
+import { AuthProvider } from "@/features/auth/AuthProvider";
 
 export function App() {
   // Created once per mount rather than at module scope, so tests get a clean
@@ -16,9 +17,14 @@ export function App() {
   return (
     <AppErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <RouterProvider router={router} />
-        </ThemeProvider>
+        {/* AuthProvider sits inside QueryClientProvider because sign-out needs
+            to clear cached queries, and outside RouterProvider because the
+            route guards read the session. */}
+        <AuthProvider>
+          <ThemeProvider>
+            <RouterProvider router={router} />
+          </ThemeProvider>
+        </AuthProvider>
       </QueryClientProvider>
     </AppErrorBoundary>
   );

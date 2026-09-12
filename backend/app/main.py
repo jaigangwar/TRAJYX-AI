@@ -22,6 +22,8 @@ from app.core.config import Settings, get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
 from app.core.middleware import RequestContextMiddleware, SecurityHeadersMiddleware
+from app.repositories.factory import create_document_store, create_storage_backend
+from app.services.auth.factory import create_auth_provider
 
 log = structlog.get_logger(__name__)
 
@@ -39,7 +41,7 @@ ground truth.
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Validate configuration on boot and log the resolved capability set."""
+    """Validate configuration, build shared singletons, log resolved capabilities."""
     settings: Settings = app.state.settings
 
     errors = settings.startup_errors()
@@ -47,6 +49,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         for message in errors:
             log.error("startup.invalid_configuration", detail=message)
         raise RuntimeError("Invalid configuration: " + "; ".join(errors))
+
+    # Built once per process: a Firestore client and a Firebase Admin app are
+    # expensive to create and are designed to be long-lived.
+    app.state.store = create_document_store(settings)
+    app.state.storage = create_storage_backend(settings)
+    app.state.auth_provider = create_auth_provider(settings, app.state.store)
 
     log.info(
         "startup.ready",
@@ -63,6 +71,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     yield
 
+    store = getattr(app.state, "store", None)
+    if store is not None:
+        await store.close()
     log.info("shutdown.complete")
 
 

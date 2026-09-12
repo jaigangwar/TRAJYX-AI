@@ -29,15 +29,19 @@ OBSERVE  ->  TRACK  ->  UNDERSTAND  ->  PREDICT  ->  WARN  ->  LEARN
 
 ## Current state
 
-**Phase 0 of 20 complete.** The foundation is built and verified: monorepo,
-shared domain contract with generated bindings for three languages, a running
-FastAPI backend with pluggable persistence, a React dashboard with its design
-system, a Flutter driver app, and the CV/ML package interfaces.
+**Phase 1 of 20 complete.** Working today: the monorepo and shared domain
+contract, a FastAPI backend with pluggable persistence and object storage, full
+authentication with four roles enforced server-side, user administration, a
+React dashboard with sign-in and role-based routing, and a Flutter driver app
+with secure session storage.
 
 No detection, tracking or risk analysis exists yet — those are phases 4 to 9.
 The dashboard and mobile app show real data from the API and say plainly, on
 each unimplemented section, which phase delivers it. Nothing is mocked to look
 finished.
+
+**216 automated tests**, 9/9 verification checks green, plus a real-browser
+end-to-end sign-in check.
 
 [**DEVELOPMENT_STATUS.md**](DEVELOPMENT_STATUS.md) is the authoritative record
 of what works, what does not, and what was actually tested.
@@ -159,7 +163,7 @@ one.
 | | Phase | | | Phase | |
 |---|---|---|---|---|---|
 | 0 | Foundation & monorepo | ✅ | 11 | Analytics | ⬜ |
-| 1 | Auth & database | ⬜ | 12 | 3D visualisation | ⬜ |
+| 1 | Auth & database | ✅ | 12 | 3D visualisation | ⬜ |
 | 2 | Dashboard foundation | ⬜ | 13 | Mobile driver app | ⬜ |
 | 3 | Video upload & jobs | ⬜ | 14 | GPS & smart alerts | ⬜ |
 | 4 | YOLO detection | ⬜ | 15 | Hazard reporting | ⬜ |

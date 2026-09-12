@@ -1,70 +1,37 @@
 /**
  * Shell render test.
  *
- * Verifies the dashboard actually mounts, that the navigation reflects the
- * signed-in role, and that the four data states are driven by the API rather
- * than hardcoded. The fetch layer is stubbed at the network boundary so this
- * exercises the real query client, the real schema validation and the real
- * components.
+ * Verifies the dashboard mounts for a signed-in user, that live API values
+ * reach the screen, and that the four data states are driven by the API rather
+ * than hardcoded. Only `fetch` is stubbed, so this exercises the real query
+ * client, schema validation and components.
  */
 
-import { QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
-import { RouterProvider, createMemoryRouter } from "react-router-dom";
+import { screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ThemeProvider } from "@/app/ThemeProvider";
-import { createQueryClient } from "@/app/queryClient";
-import { routes } from "@/app/routes";
-
-const HEALTH_PAYLOAD = {
-  status: "ok",
-  service: "TRAJYX API",
-  version: "0.1.0",
-  environment: "test",
-  contract_version: "1.0.0",
-  capabilities: {
-    data_backend: "local",
-    auth_backend: "local",
-    storage_backend: "local",
-    demo_mode: true,
-  },
-  warnings: ["Data backend is LOCAL (on-disk JSON store)."],
-};
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
-
-function renderAt(path: string) {
-  const router = createMemoryRouter(routes, { initialEntries: [path] });
-  return render(
-    <QueryClientProvider client={createQueryClient({ retry: false })}>
-      <ThemeProvider>
-        <RouterProvider router={router} />
-      </ThemeProvider>
-    </QueryClientProvider>,
-  );
-}
-
-const fetchMock = vi.fn();
+import {
+  HEALTH_PAYLOAD,
+  renderApp,
+  renderAsRole,
+  resetAuthState,
+  seedStoredSession,
+  stubFetch,
+  userFor,
+} from "@/test/harness";
 
 beforeEach(() => {
-  fetchMock.mockReset();
-  vi.stubGlobal("fetch", fetchMock);
+  resetAuthState();
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  resetAuthState();
 });
 
 describe("dashboard shell", () => {
   it("renders the navigation groups for a staff role", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(HEALTH_PAYLOAD));
-    renderAt("/overview");
+    renderAsRole("ADMIN", "/overview");
 
     const nav = await screen.findByRole("navigation", { name: "Main navigation" });
     expect(nav).toBeInTheDocument();
@@ -76,8 +43,7 @@ describe("dashboard shell", () => {
   });
 
   it("shows live platform state from the API, not hardcoded values", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(HEALTH_PAYLOAD));
-    renderAt("/overview");
+    renderAsRole("ADMIN", "/overview");
 
     await waitFor(() => {
       expect(screen.getByText("TRAJYX API")).toBeInTheDocument();
@@ -88,12 +54,9 @@ describe("dashboard shell", () => {
   });
 
   it("surfaces demo mode in the chrome so synthetic data is never mistaken for real", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(HEALTH_PAYLOAD));
-    renderAt("/overview");
+    renderAsRole("ADMIN", "/overview");
 
-    // The chip lives in the top bar; the Overview panel also has a "Demo mode"
-    // field, so scope the query to the header to assert the right one.
-    const header = screen.getByRole("banner", { name: "Page header" });
+    const header = await screen.findByRole("banner", { name: "Page header" });
     await waitFor(() => {
       expect(within(header).getByText("Demo mode")).toBeInTheDocument();
     });
@@ -101,26 +64,52 @@ describe("dashboard shell", () => {
   });
 
   it("renders an actionable error state when the API is unreachable", async () => {
-    fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
-    renderAt("/overview");
+    // The session verifies, then the health query fails.
+    const user = userFor("ADMIN");
+    seedStoredSession(user);
+
+    let call = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+        call += 1;
+        if (url.includes("/auth/me")) {
+          return new Response(JSON.stringify(user), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        throw new TypeError(`Failed to fetch (call ${call})`);
+      }),
+    );
+
+    renderApp("/overview");
 
     expect(await screen.findByText("Cannot reach the TRAJYX API")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /retry|try again/i })).toBeInTheDocument();
   });
 
   it("renders the API error envelope's code and message", async () => {
-    fetchMock.mockResolvedValue(
-      jsonResponse({ error: { code: "FORBIDDEN", message: "Role is not permitted." } }, 403),
-    );
-    renderAt("/overview");
+    const user = userFor("ADMIN");
+    seedStoredSession(user);
+    stubFetch([
+      { match: "/auth/me", body: user },
+      {
+        match: "/health",
+        body: { error: { code: "DEPENDENCY_UNAVAILABLE", message: "Firestore is unavailable." } },
+        status: 503,
+      },
+    ]);
 
-    expect(await screen.findByText("FORBIDDEN")).toBeInTheDocument();
-    expect(screen.getByText("Role is not permitted.")).toBeInTheDocument();
+    renderApp("/overview");
+
+    expect(await screen.findByText("DEPENDENCY_UNAVAILABLE")).toBeInTheDocument();
+    expect(screen.getByText("Firestore is unavailable.")).toBeInTheDocument();
   });
 
   it("states plainly that an unimplemented section is not built yet", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(HEALTH_PAYLOAD));
-    renderAt("/risk-map");
+    renderAsRole("ADMIN", "/risk-map");
 
     expect(
       await screen.findByText(/This section is not implemented yet/i),
@@ -132,15 +121,14 @@ describe("dashboard shell", () => {
   });
 
   it("redirects the index route to overview", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(HEALTH_PAYLOAD));
-    renderAt("/");
+    renderAsRole("ADMIN", "/");
 
     expect(await screen.findByRole("heading", { name: "Overview" })).toBeInTheDocument();
   });
 
   it("renders a not-found page for an unknown route", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(HEALTH_PAYLOAD));
-    renderAt("/no-such-page");
+    stubFetch([{ match: "/health", body: HEALTH_PAYLOAD }]);
+    renderApp("/no-such-page");
 
     expect(await screen.findByText("Page not found")).toBeInTheDocument();
   });

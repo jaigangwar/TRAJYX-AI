@@ -96,6 +96,37 @@ def _request_id(request: Request) -> str | None:
     return getattr(request.state, "request_id", None)
 
 
+def _safe_validation_issues(exc: RequestValidationError) -> list[dict[str, Any]]:
+    """Reduce Pydantic validation errors to a safe, serialisable form.
+
+    Two reasons the raw ``exc.errors()`` list cannot be returned as-is:
+
+    1. **It leaks the submitted value.** Each entry carries ``input``, so a
+       rejected registration would echo the caller's password back in the 422
+       body, and into any log that records responses.
+    2. **It is not JSON-serialisable.** For a custom validator, ``ctx``
+       carries the original exception object, which crashes the JSON encoder
+       and turns a 422 into a 500.
+
+    Only ``loc``, ``msg`` and ``type`` are copied, so both problems are
+    excluded by construction rather than by remembering to strip fields.
+    (``RequestValidationError.errors()`` takes no filtering arguments — it
+    subclasses Starlette's ``ValidationException``, not Pydantic's.)
+    """
+    issues: list[dict[str, Any]] = []
+    for error in exc.errors():
+        issues.append(
+            {
+                # Drop the leading "body"/"query" marker: the client knows
+                # where it put the field, and the path is what identifies it.
+                "field": ".".join(str(part) for part in error.get("loc", ()) if part != "body"),
+                "message": str(error.get("msg", "Invalid value.")),
+                "type": str(error.get("type", "value_error")),
+            }
+        )
+    return issues
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     """Attach handlers that normalise every error into the shared envelope."""
 
@@ -121,7 +152,7 @@ def register_exception_handlers(app: FastAPI) -> None:
                 "VALIDATION_ERROR",
                 "Request payload failed validation.",
                 _request_id(request),
-                {"issues": exc.errors()},
+                {"issues": _safe_validation_issues(exc)},
             ),
         )
 
