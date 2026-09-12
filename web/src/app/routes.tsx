@@ -24,6 +24,7 @@ import { DriverNoticePage } from "@/pages/DriverNoticePage";
 import { EventsPage } from "@/pages/EventsPage";
 import { MonitoringPage } from "@/pages/MonitoringPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
+import { RiskMapPage } from "@/pages/RiskMapPage";
 import { OverviewPage } from "@/pages/OverviewPage";
 import { PhasePendingPage } from "@/pages/PhasePendingPage";
 import { SettingsPage } from "@/pages/SettingsPage";
@@ -73,20 +74,7 @@ export const routes: RouteObject[] = [
 
       {
         path: "risk-map",
-        element: guarded(
-          "/risk-map",
-          <PhasePendingPage
-            title="Risk Map"
-            path="/risk-map"
-            summary="A full-screen GIS view of road-segment risk, risk zones, cameras and events, with filters and a detail panel for any selected hotspot."
-            planned={[
-              "Road segments and risk zones coloured by risk level",
-              "Camera, violation and near-miss layers",
-              "Filters: risk level, event type, time range, camera, road",
-              "Hotspot detail: score, contributing factors, peak time, recent events",
-            ]}
-          />,
-        ),
+        element: guarded("/risk-map", <RiskMapPage />),
       },
       {
         path: "violations",

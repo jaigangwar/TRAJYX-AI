@@ -9,7 +9,16 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.v1.routes import auth, cameras, dashboard, events, health, users, videos
+from app.api.v1.routes import (
+    auth,
+    cameras,
+    dashboard,
+    events,
+    health,
+    risk,
+    users,
+    videos,
+)
 
 api_router = APIRouter()
 
@@ -27,3 +36,6 @@ api_router.include_router(events.router)
 
 # Phases 3-8: video analysis pipeline
 api_router.include_router(videos.router)
+
+# Phase 10: geospatial risk and driver alerts
+api_router.include_router(risk.router)

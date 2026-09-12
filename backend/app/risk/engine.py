@@ -102,11 +102,18 @@ class RiskInputs:
 
     @property
     def window_label(self) -> str:
+        """The observation window in the largest sensible unit.
+
+        Shown verbatim to operators and drivers, so "168 in 14 days" rather
+        than "168 in 336.0h".
+        """
         if self.observation_hours < 1 / 60:
             return f"{self.observation_hours * 3600:.0f}s"
         if self.observation_hours < 1:
-            return f"{self.observation_hours * 60:.0f}min"
-        return f"{self.observation_hours:.1f}h"
+            return f"{self.observation_hours * 60:.0f} min"
+        if self.observation_hours < 48:
+            return f"{self.observation_hours:.0f}h"
+        return f"{self.observation_hours / 24:.0f} days"
 
 
 # Weights sum to 100. Ordered by how predictive each signal is of an actual
@@ -132,6 +139,33 @@ ELEVATED_HOURS = {17, 18, 19, 20, 21}
 TIME_OF_DAY_MULTIPLIER = 1.08
 
 
+# Saturation references, as events per hour.
+#
+# These are calibrated against realistic observed rates, which matters more
+# than it looks: an earlier version used 4 near misses *per hour* as the
+# saturation point. A genuinely dangerous urban junction produces a handful
+# per *day* — roughly 0.2-0.5 per hour — so every real road scored LOW and the
+# system generated no risk zones at all and therefore never warned anybody.
+#
+# A rate at or above the reference contributes the factor's full weight.
+REFERENCES = {
+    #: ~12 near misses a day is a seriously conflict-prone junction.
+    "near_miss_per_hour": 0.5,
+    #: Wrong-way travel is rare and severe; 2-3 a day is alarming.
+    "wrong_way_per_hour": 0.1,
+    #: Pedestrian conflicts: ~7 a day on a bad crossing.
+    "pedestrian_conflict_per_hour": 0.3,
+    #: Violations are common, so the bar is higher: ~36 a day.
+    "violation_per_hour": 1.5,
+    #: Abrupt braking and acceleration: ~72 a day marks a disrupted flow.
+    "braking_per_hour": 3.0,
+    #: Traffic volume, for the density factor.
+    "vehicles_per_hour": 400.0,
+    #: Historical weight, as a raw count rather than a rate.
+    "history_count": 20.0,
+}
+
+
 def _saturating(value: float, reference: float) -> float:
     """Map a rate onto 0-1, saturating at `reference`.
 
@@ -152,7 +186,7 @@ def assess(inputs: RiskInputs, now: datetime | None = None) -> RiskAssessment:
     factors.append(
         RiskFactor(
             name="Recent near misses",
-            value=_saturating(near_miss_rate, 4.0),
+            value=_saturating(near_miss_rate, REFERENCES["near_miss_per_hour"]),
             weight=WEIGHTS["near_miss"],
             detail=f"{inputs.near_miss_count} in {inputs.window_label}"
             if inputs.near_miss_count
@@ -177,7 +211,7 @@ def assess(inputs: RiskInputs, now: datetime | None = None) -> RiskAssessment:
     factors.append(
         RiskFactor(
             name="Wrong-way movement",
-            value=_saturating(inputs.per_hour(inputs.wrong_way_count), 1.0),
+            value=_saturating(inputs.per_hour(inputs.wrong_way_count), REFERENCES["wrong_way_per_hour"]),
             weight=WEIGHTS["wrong_way"],
             detail=f"{inputs.wrong_way_count} vehicles" if inputs.wrong_way_count else None,
         )
@@ -195,7 +229,10 @@ def assess(inputs: RiskInputs, now: datetime | None = None) -> RiskAssessment:
             name="Pedestrian exposure",
             value=max(
                 pedestrian_exposure,
-                _saturating(inputs.per_hour(inputs.pedestrian_conflict_count), 2.0),
+                _saturating(
+                    inputs.per_hour(inputs.pedestrian_conflict_count),
+                    REFERENCES["pedestrian_conflict_per_hour"],
+                ),
             ),
             weight=WEIGHTS["pedestrian"],
             detail=f"{inputs.pedestrian_conflict_count} conflicts"
@@ -207,7 +244,7 @@ def assess(inputs: RiskInputs, now: datetime | None = None) -> RiskAssessment:
     factors.append(
         RiskFactor(
             name="Traffic violations",
-            value=_saturating(inputs.per_hour(inputs.violation_count), 6.0),
+            value=_saturating(inputs.per_hour(inputs.violation_count), REFERENCES["violation_per_hour"]),
             weight=WEIGHTS["violation"],
             detail=f"{inputs.violation_count} recorded" if inputs.violation_count else None,
         )
@@ -217,7 +254,7 @@ def assess(inputs: RiskInputs, now: datetime | None = None) -> RiskAssessment:
     factors.append(
         RiskFactor(
             name="Abrupt braking and acceleration",
-            value=_saturating(braking_rate, 8.0),
+            value=_saturating(braking_rate, REFERENCES["braking_per_hour"]),
             weight=WEIGHTS["braking"],
             detail=f"{inputs.hard_braking_count} hard brakes"
             if inputs.hard_braking_count
@@ -239,7 +276,7 @@ def assess(inputs: RiskInputs, now: datetime | None = None) -> RiskAssessment:
     factors.append(
         RiskFactor(
             name="Traffic density",
-            value=_saturating(inputs.per_hour(inputs.vehicle_count), 400.0),
+            value=_saturating(inputs.per_hour(inputs.vehicle_count), REFERENCES["vehicles_per_hour"]),
             weight=WEIGHTS["density"],
             detail=f"{inputs.vehicle_count} vehicles" if inputs.vehicle_count else None,
         )
@@ -249,7 +286,8 @@ def assess(inputs: RiskInputs, now: datetime | None = None) -> RiskAssessment:
         RiskFactor(
             name="Historical incidents",
             value=_saturating(
-                float(inputs.historical_near_miss_count + inputs.confirmed_hazard_count * 2), 20.0
+                float(inputs.historical_near_miss_count + inputs.confirmed_hazard_count * 2),
+                REFERENCES["history_count"],
             ),
             weight=WEIGHTS["history"],
             detail=f"{inputs.confirmed_hazard_count} confirmed hazards"

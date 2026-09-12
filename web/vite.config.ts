@@ -28,6 +28,28 @@ export default defineConfig({
       "@shared": resolvePath("../shared/ts"),
     },
   },
+  optimizeDeps: {
+    /**
+     * MapLibre must not be pre-bundled.
+     *
+     * It spawns its GeoJSON/vector parser as a module worker from a URL
+     * relative to its own entry (`new Worker(new URL("./maplibre-gl-worker.mjs",
+     * import.meta.url), { type: "module" })`). Vite's dependency optimiser
+     * rewrites the entry into `node_modules/.vite/deps/maplibre-gl.mjs` but
+     * does not copy the sibling worker, so the worker request fails with
+     * ERR_FAILED. The failure is silent: no MapLibre `error` event and no
+     * console output. Every GeoJSON source then stays permanently unloaded —
+     * `isSourceLoaded()` false, `querySourceFeatures()` empty — so the whole
+     * risk overlay renders nothing while the raster basemap, which needs no
+     * worker, draws normally.
+     *
+     * Excluding it makes Vite serve the real ESM from `node_modules`, where
+     * the worker resolves as a sibling. The production build is unaffected:
+     * Rollup understands the `new URL(..., import.meta.url)` worker idiom and
+     * emits the chunk itself.
+     */
+    exclude: ["maplibre-gl"],
+  },
   server: {
     port: 5173,
     strictPort: true,

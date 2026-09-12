@@ -1,0 +1,37 @@
+{
+  "_comment": "TRAJYX dark basemap. Raster tiles from OpenStreetMap so the risk map renders with no API key on a clean checkout. Desaturated and darkened via raster paint properties so the risk overlay is the brightest thing on screen \u2014 the whole point of the map is the risk colours, and a full-colour basemap competes with them. For production cartography, point VITE_MAP_STYLE_URL at a vector style.",
+  "version": 8,
+  "name": "TRAJYX Dark",
+  "sources": {
+    "osm": {
+      "type": "raster",
+      "tiles": [
+        "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+      ],
+      "tileSize": 256,
+      "maxzoom": 19,
+      "attribution": "\u00a9 OpenStreetMap contributors"
+    }
+  },
+  "layers": [
+    {
+      "id": "ground",
+      "type": "background",
+      "paint": {
+        "background-color": "#0a0e11"
+      }
+    },
+    {
+      "id": "osm",
+      "type": "raster",
+      "source": "osm",
+      "paint": {
+        "raster-opacity": 0.32,
+        "raster-saturation": -1.0,
+        "raster-brightness-min": 0.0,
+        "raster-brightness-max": 0.35,
+        "raster-contrast": 0.3
+      }
+    }
+  ]
+}
