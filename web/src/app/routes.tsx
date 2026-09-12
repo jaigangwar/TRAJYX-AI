@@ -18,6 +18,7 @@ import { NAV_ITEMS } from "@/app/navigation";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { RequireRole, RequireStaff } from "@/features/auth/guards";
 import { AuthenticatedDashboard } from "@/layouts/AuthenticatedDashboard";
+import { AnalysisPage } from "@/pages/AnalysisPage";
 import { CamerasPage } from "@/pages/CamerasPage";
 import { DriverNoticePage } from "@/pages/DriverNoticePage";
 import { EventsPage } from "@/pages/EventsPage";
@@ -63,20 +64,7 @@ export const routes: RouteObject[] = [
       },
       {
         path: "analysis",
-        element: guarded(
-          "/analysis",
-          <PhasePendingPage
-            title="Video Analysis"
-            path="/analysis"
-            summary="Upload CCTV footage, run the detection and tracking pipeline as a background job, and review the annotated result beside a live analysis panel and an event timeline."
-            planned={[
-              "Upload with type and size validation, and job progress",
-              "Annotated playback with bounding boxes, track IDs and trajectories",
-              "Analysis panel: counts, violations, near misses, collision risk, density",
-              "Event timeline with click-to-seek",
-            ]}
-          />,
-        ),
+        element: guarded("/analysis", <AnalysisPage />),
       },
       {
         path: "cameras",
