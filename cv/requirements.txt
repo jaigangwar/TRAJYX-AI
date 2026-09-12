@@ -1,0 +1,26 @@
+# TRAJYX computer-vision dependencies.
+#
+# Install only on machines that run analysis workers:
+#   .venv/Scripts/python -m pip install -r cv/requirements.txt
+#
+# The API service does not need these. Keeping them out of
+# backend/requirements.txt is what lets the API be deployed as a small image
+# while GPU workers get the heavy stack.
+#
+# torch is intentionally NOT pinned here. Installing the right build depends on
+# the target accelerator, and a wrong pin silently falls back to CPU inference.
+# Install it first, from the selector at https://pytorch.org/get-started/locally/
+#   CPU:     pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+#   CUDA 12: pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+
+numpy==1.26.4
+opencv-python-headless==4.10.0.84
+
+# YOLO detection and the bundled ByteTrack implementation.
+ultralytics==8.3.58
+
+# Kalman filtering and interpolation for trajectory smoothing.
+scipy==1.14.1
+
+# Frame-accurate seeking that OpenCV's VideoCapture does not reliably provide.
+av==13.1.0

@@ -1,0 +1,142 @@
+{
+  "$comment": "Composite indexes required by TRAJYX queries. Each entry exists because a specific dashboard or mobile query needs it; Firestore rejects such a query without one. Deploy with: firebase deploy --only firestore:indexes",
+  "indexes": [
+    {
+      "$comment": "Violations page filtered by camera, newest first.",
+      "collectionGroup": "violations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "camera_id", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "$comment": "Violations page filtered by violation type, newest first.",
+      "collectionGroup": "violations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "event_type", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "$comment": "Operator review queue: pending violations, oldest first.",
+      "collectionGroup": "violations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "$comment": "Near misses ranked by severity within one road segment.",
+      "collectionGroup": "near_misses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "road_segment_id", "order": "ASCENDING" },
+        { "fieldPath": "risk_score", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "$comment": "Per-camera near-miss timeline.",
+      "collectionGroup": "near_misses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "camera_id", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "$comment": "Time-based risk charts: one segment risk history over time.",
+      "collectionGroup": "risk_events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "road_segment_id", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "$comment": "Risk map: highest-scoring zones for the selected risk level.",
+      "collectionGroup": "risk_zones",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "risk_level", "order": "ASCENDING" },
+        { "fieldPath": "risk_score", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "$comment": "Detections replayed per analysis run in frame order.",
+      "collectionGroup": "detections",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "video_analysis_id", "order": "ASCENDING" },
+        { "fieldPath": "frame_index", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "$comment": "One track history within one analysis run.",
+      "collectionGroup": "tracking_events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "video_analysis_id", "order": "ASCENDING" },
+        { "fieldPath": "track_id", "order": "ASCENDING" },
+        { "fieldPath": "frame_index", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "$comment": "Job history for the uploading operator, newest first.",
+      "collectionGroup": "video_jobs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "created_by", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "$comment": "Worker claims the oldest queued job.",
+      "collectionGroup": "video_jobs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "$comment": "Incidents page: hazard report triage queue.",
+      "collectionGroup": "driver_reports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "$comment": "Report history for one driver in the mobile app.",
+      "collectionGroup": "driver_reports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "user_id", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "$comment": "Alert history for one driver in the mobile app.",
+      "collectionGroup": "alerts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "user_id", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "$comment": "Trip history for one driver in the mobile app.",
+      "collectionGroup": "trips",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "user_id", "order": "ASCENDING" },
+        { "fieldPath": "started_at", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

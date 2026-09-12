@@ -1,0 +1,35 @@
+name: trajyx
+description: "TRAJYX — driver safety companion. Warns drivers before they enter a high-risk road segment."
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.11.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management. Riverpod is chosen over provider/bloc because the alert
+  # engine is a set of derived values (position -> segment -> zones -> alert)
+  # and Riverpod expresses derived state without manual wiring.
+  flutter_riverpod: ^3.0.4
+
+  # HTTP client for the TRAJYX API.
+  http: ^1.6.0
+
+  # Date, number and distance formatting.
+  intl: ^0.20.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # Lint rules. See analysis_options.yaml for the enabled set.
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/brand/

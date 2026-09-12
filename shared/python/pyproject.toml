@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trajyx-shared"
+version = "1.0.0"
+description = "Generated TRAJYX domain contract shared by the backend, CV and ML packages."
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.setuptools.packages.find]
+include = ["trajyx_shared*"]

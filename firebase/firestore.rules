@@ -1,0 +1,211 @@
+rules_version = '2';
+
+// ============================================================================
+// TRAJYX Firestore security rules
+// ----------------------------------------------------------------------------
+// Principles:
+//   1. Deny by default. Every collection is listed explicitly; anything not
+//      matched falls through to the closing deny rule.
+//   2. Clients never write analysis output. Detections, tracking events,
+//      violations, near misses, risk events, risk zones and model versions are
+//      produced by the backend using the Admin SDK, which bypasses these
+//      rules. Making them client-writable would let a driver app fabricate a
+//      violation.
+//   3. Roles come from a custom claim, set by the backend. A client cannot
+//      change its own role, because the role is not stored in a document the
+//      client can write.
+//   4. Drivers see aggregate risk, never raw footage-derived detections.
+//      Privacy by design: a driver has no reason to read tracking data.
+// ============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------------------------------------------------------------- helpers
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function role() {
+      return isSignedIn() ? request.auth.token.get('role', 'DRIVER') : null;
+    }
+
+    function isAdmin() {
+      return role() == 'ADMIN';
+    }
+
+    function isOperator() {
+      return role() == 'TRAFFIC_OPERATOR';
+    }
+
+    function isAnalyst() {
+      return role() == 'ANALYST';
+    }
+
+    // Any dashboard user, as opposed to a driver on the mobile app.
+    function isStaff() {
+      return isAdmin() || isOperator() || isAnalyst();
+    }
+
+    function isSelf(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Fields a user may never change on their own document. Role and status
+    // are set by the backend only; allowing self-service here would be a
+    // privilege-escalation path.
+    function protectedUserFieldsUnchanged() {
+      return request.resource.data.role == resource.data.role
+        && request.resource.data.status == resource.data.status
+        && request.resource.data.created_at == resource.data.created_at;
+    }
+
+    // ------------------------------------------------------------------ users
+
+    match /users/{userId} {
+      allow get: if isSelf(userId) || isStaff();
+      allow list: if isAdmin();
+      allow create: if isAdmin();
+      // A user may edit their own profile but not their role or status.
+      allow update: if isAdmin() || (isSelf(userId) && protectedUserFieldsUnchanged());
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------- cameras
+
+    match /cameras/{cameraId} {
+      allow read: if isStaff();
+      // Calibration and stop-line geometry change what the analysis means, so
+      // only operators and admins may edit a camera.
+      allow write: if isAdmin() || isOperator();
+    }
+
+    // --------------------------------------------------- video jobs/analysis
+
+    match /video_jobs/{jobId} {
+      allow read: if isStaff();
+      allow create, update: if isAdmin() || isOperator();
+      allow delete: if isAdmin();
+    }
+
+    match /video_analysis/{analysisId} {
+      allow read: if isStaff();
+      // Written by the analysis worker through the Admin SDK.
+      allow write: if false;
+    }
+
+    // ----------------------------------------------- analysis output (read-only)
+    // Produced by the pipeline. No client may write these at any role.
+
+    match /detections/{detectionId} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+
+    match /tracking_events/{eventId} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+
+    match /violations/{violationId} {
+      allow read: if isStaff();
+      // Operators review violations; the review fields are updated through the
+      // backend so the transition is validated and audited.
+      allow write: if false;
+    }
+
+    match /near_misses/{nearMissId} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+
+    match /risk_events/{riskEventId} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+
+    match /model_versions/{versionId} {
+      allow read: if isStaff();
+      // Model metrics must only ever come from an evaluation run.
+      allow write: if false;
+    }
+
+    match /analytics/{documentId} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+
+    // ------------------------------------------------------------ geospatial
+    // Road segments and risk zones are readable by drivers too: this is what
+    // the mobile alert engine queries. They are aggregate risk, not
+    // footage-derived detail about any individual road user.
+
+    match /road_segments/{segmentId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /risk_zones/{zoneId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // ---------------------------------------------------------------- alerts
+    // An alert belongs to the driver it was raised for.
+
+    match /alerts/{alertId} {
+      allow get: if isStaff() || (isSignedIn() && resource.data.user_id == request.auth.uid);
+      allow list: if isStaff();
+      // The device records that an alert was delivered and acknowledged.
+      allow create: if isSignedIn() && request.resource.data.user_id == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // --------------------------------------------------------------- trips
+
+    match /trips/{tripId} {
+      allow get, list: if isStaff() || (isSignedIn() && resource.data.user_id == request.auth.uid);
+      allow create: if isSignedIn() && request.resource.data.user_id == request.auth.uid;
+      allow update: if isSelf(resource.data.user_id);
+      allow delete: if isAdmin() || isSelf(resource.data.user_id);
+    }
+
+    // ------------------------------------------------------- driver reports
+    // The one place a driver genuinely contributes data.
+
+    match /driver_reports/{reportId} {
+      allow get, list: if isStaff() || (isSignedIn() && resource.data.user_id == request.auth.uid);
+      allow create: if isSignedIn()
+        && request.resource.data.user_id == request.auth.uid
+        && request.resource.data.status == 'PENDING';
+      // A reporter may correct their own pending report; operators triage it.
+      allow update: if isAdmin() || isOperator()
+        || (isSelf(resource.data.user_id) && resource.data.status == 'PENDING');
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------- notifications
+
+    match /notifications/{notificationId} {
+      allow get, list: if isSignedIn() && resource.data.user_id == request.auth.uid;
+      // Marking a notification read is the only client write.
+      allow update: if isSignedIn() && resource.data.user_id == request.auth.uid;
+      allow create, delete: if false;
+    }
+
+    // -------------------------------------------------------------- settings
+    // Alert thresholds, retention windows and demo mode.
+
+    match /settings/{documentId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ------------------------------------------------------------ deny rest
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

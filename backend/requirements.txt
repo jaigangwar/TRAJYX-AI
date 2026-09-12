@@ -1,0 +1,24 @@
+# TRAJYX backend — API service runtime dependencies.
+# Install:  .venv/Scripts/python -m pip install -r backend/requirements.txt
+# CV/ML extras live in cv/requirements.txt and ml/requirements.txt so the API
+# service can be deployed without pulling in torch.
+
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.0
+python-multipart==0.0.20
+httpx==0.28.1
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+orjson==3.10.13
+structlog==24.4.0
+
+# Firebase Admin (Firestore, Storage, Auth token verification).
+# Optional at runtime: the backend falls back to the local repository adapter
+# when Firebase credentials are absent. See app/core/config.py.
+firebase-admin==6.6.0
+
+# Geospatial helpers for road-segment matching and risk aggregation.
+shapely==2.0.6
+pyproj==3.6.1

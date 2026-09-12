@@ -1,0 +1,21 @@
+{
+  "name": "trajyx",
+  "private": true,
+  "version": "0.1.0",
+  "description": "TRAJYX — predictive road safety and traffic intelligence platform.",
+  "scripts": {
+    "dev:api": "python scripts/dev_api.py",
+    "dev:web": "npm --prefix web run dev",
+    "dev:mobile": "cd mobile && flutter run",
+    "build:web": "npm --prefix web run build",
+    "contracts": "python scripts/gen_contracts.py",
+    "verify": "python scripts/verify.py",
+    "verify:web": "python scripts/verify.py --only web",
+    "verify:py": "python scripts/verify.py --only backend --only cv --only contracts",
+    "verify:mobile": "python scripts/verify.py --only mobile",
+    "emulators": "firebase emulators:start"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

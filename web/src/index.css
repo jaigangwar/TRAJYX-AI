@@ -1,0 +1,6 @@
+/* TRAJYX web stylesheet entry point.
+   Order matters: Tailwind first, then tokens (which feed @theme), then base. */
+
+@import "tailwindcss";
+@import "./styles/tokens.css";
+@import "./styles/base.css";

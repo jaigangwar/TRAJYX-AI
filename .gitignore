@@ -1,0 +1,61 @@
+# ---- Secrets ----
+.env
+.env.local
+.env.*.local
+*serviceAccount*.json
+!*serviceAccount*.example.json
+firebase/service-account.json
+.firebase/
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# ---- Node ----
+node_modules/
+dist/
+dist-ssr/
+.vite/
+*.tsbuildinfo
+coverage/
+
+# ---- Flutter / Dart ----
+mobile/.dart_tool/
+mobile/build/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/ios/Pods/
+*.iml
+
+# ---- Runtime data / artifacts ----
+data/
+storage/
+var/
+models/weights/*
+!models/weights/.gitkeep
+models/artifacts/*
+!models/artifacts/.gitkeep
+datasets/raw/*
+!datasets/raw/.gitkeep
+*.mp4
+*.mkv
+*.avi
+!datasets/samples/*.mp4
+
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.verify/

@@ -1,0 +1,82 @@
+rules_version = '2';
+
+// ============================================================================
+// TRAJYX Cloud Storage security rules
+// ----------------------------------------------------------------------------
+// Source footage and evidence frames are the most sensitive data in the
+// system. They stay staff-only, and nothing is world-readable.
+//
+// Uploads go through the backend wherever possible so size and content type
+// are validated once, server side. The direct-upload paths below exist for the
+// two cases where a client genuinely needs them: operator video upload, and a
+// driver attaching a photo to a hazard report.
+// ============================================================================
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function role() {
+      return isSignedIn() ? request.auth.token.get('role', 'DRIVER') : null;
+    }
+
+    function isAdmin() { return role() == 'ADMIN'; }
+    function isOperator() { return role() == 'TRAFFIC_OPERATOR'; }
+    function isAnalyst() { return role() == 'ANALYST'; }
+    function isStaff() { return isAdmin() || isOperator() || isAnalyst(); }
+
+    function isVideo() {
+      return request.resource.contentType.matches('video/.*');
+    }
+
+    function isImage() {
+      return request.resource.contentType.matches('image/(jpeg|png|webp)');
+    }
+
+    // ------------------------------------------------------- source footage
+    // The 512 MiB ceiling mirrors TRAJYX_MAX_UPLOAD_BYTES in the backend.
+    match /videos/{jobId}/{fileName} {
+      allow read: if isStaff();
+      allow write: if (isAdmin() || isOperator())
+        && isVideo()
+        && request.resource.size < 512 * 1024 * 1024;
+    }
+
+    // ----------------------------------------------------- processed output
+    // Annotated video and evidence frames are written by the analysis worker
+    // through the Admin SDK, never by a client.
+    match /processed/{jobId}/{fileName} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+
+    match /evidence/{eventId}/{fileName} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+
+    // ------------------------------------------------------- driver reports
+    // A driver writes only into their own folder, images only, 12 MiB cap.
+    match /reports/{userId}/{fileName} {
+      allow read: if isStaff() || (isSignedIn() && request.auth.uid == userId);
+      allow write: if isSignedIn()
+        && request.auth.uid == userId
+        && isImage()
+        && request.resource.size < 12 * 1024 * 1024;
+    }
+
+    // -------------------------------------------------------- generated reports
+    match /exports/{fileName} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+
+    // ------------------------------------------------------------ deny rest
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

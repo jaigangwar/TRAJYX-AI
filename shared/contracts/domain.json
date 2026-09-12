@@ -1,0 +1,152 @@
+{
+  "$comment": "TRAJYX canonical domain contract. Single source of truth for enums and thresholds shared by backend (Python), web (TypeScript) and mobile (Dart). Regenerate language bindings with: python scripts/gen_contracts.py",
+  "version": "1.0.0",
+  "enums": {
+    "Role": {
+      "doc": "Authorization roles. Ordered from most to least privileged.",
+      "values": ["ADMIN", "TRAFFIC_OPERATOR", "ANALYST", "DRIVER"]
+    },
+    "RiskLevel": {
+      "doc": "Coarse risk band derived from a 0-100 risk score.",
+      "values": ["LOW", "MODERATE", "HIGH", "CRITICAL"]
+    },
+    "Severity": {
+      "doc": "Event severity, independent of the numeric risk score.",
+      "values": ["INFO", "MINOR", "MAJOR", "CRITICAL"]
+    },
+    "EventType": {
+      "doc": "Canonical event taxonomy emitted by the safety, interaction and risk engines.",
+      "values": [
+        "HELMET_VIOLATION",
+        "SEATBELT_VIOLATION",
+        "TRIPLE_RIDING",
+        "WRONG_WAY",
+        "RED_LIGHT_VIOLATION",
+        "STOP_LINE_VIOLATION",
+        "DANGEROUS_LANE_CHANGE",
+        "OVERSPEED",
+        "HARD_BRAKING",
+        "SUDDEN_ACCELERATION",
+        "DISTRACTED_RIDING",
+        "PEDESTRIAN_CONFLICT",
+        "NEAR_MISS",
+        "COLLISION_RISK",
+        "HAZARD_REPORT"
+      ]
+    },
+    "EventCategory": {
+      "doc": "Grouping used by dashboard navigation and reporting.",
+      "values": ["VIOLATION", "BEHAVIOR", "INTERACTION", "REPORT"]
+    },
+    "VehicleClass": {
+      "doc": "Detector output classes. Extend by adding here and retraining/remapping the detector.",
+      "values": [
+        "CAR",
+        "MOTORCYCLE",
+        "SCOOTER",
+        "BUS",
+        "TRUCK",
+        "AUTO_RICKSHAW",
+        "VAN",
+        "BICYCLE",
+        "PEDESTRIAN"
+      ]
+    },
+    "CameraStatus": {
+      "doc": "Operational state of a camera as shown in Live Monitoring.",
+      "values": ["ONLINE", "OFFLINE", "PROCESSING", "ALERT"]
+    },
+    "JobStatus": {
+      "doc": "Lifecycle of an asynchronous video analysis job.",
+      "values": ["QUEUED", "PROCESSING", "COMPLETED", "FAILED", "CANCELLED"]
+    },
+    "TtcBand": {
+      "doc": "Band for an ESTIMATED time-to-collision value. Always presented as an estimate.",
+      "values": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+    },
+    "Determination": {
+      "doc": "Tri-state result for any visual check. UNABLE_TO_DETERMINE is a first-class outcome and must never be collapsed into a negative.",
+      "values": ["DETECTED", "NOT_DETECTED", "UNABLE_TO_DETERMINE"]
+    },
+    "AlertLevel": {
+      "doc": "Driver alert escalation tiers.",
+      "values": ["LEVEL_1", "LEVEL_2", "LEVEL_3"]
+    },
+    "DataOrigin": {
+      "doc": "Provenance label. Every record carries one so simulated and estimated values are never displayed as measured ground truth.",
+      "values": ["MEASURED", "ESTIMATED", "DEMO"]
+    },
+    "HazardType": {
+      "doc": "Hazard categories a driver can report from the mobile app.",
+      "values": [
+        "ACCIDENT",
+        "POTHOLE",
+        "BROKEN_SIGNAL",
+        "ROAD_BLOCKAGE",
+        "WRONG_WAY_VEHICLE",
+        "DANGEROUS_CROSSING",
+        "POOR_VISIBILITY",
+        "ROAD_DAMAGE",
+        "OTHER"
+      ]
+    },
+    "ReportStatus": {
+      "doc": "Review workflow state for driver hazard reports and flagged violations.",
+      "values": ["PENDING", "REVIEWING", "CONFIRMED", "REJECTED"]
+    },
+    "ModelHealth": {
+      "doc": "Operational health of a registered model version.",
+      "values": ["HEALTHY", "WARNING", "NEEDS_ATTENTION", "UNKNOWN"]
+    },
+    "SignalState": {
+      "doc": "Traffic signal phase used by the red-light violation detector. UNKNOWN suppresses red-light detection entirely.",
+      "values": ["RED", "AMBER", "GREEN", "UNKNOWN"]
+    }
+  },
+  "risk_bands": [
+    { "level": "LOW", "min": 0, "max": 25 },
+    { "level": "MODERATE", "min": 26, "max": 50 },
+    { "level": "HIGH", "min": 51, "max": 75 },
+    { "level": "CRITICAL", "min": 76, "max": 100 }
+  ],
+  "ttc_bands": [
+    { "band": "LOW", "min_seconds": 5.0, "max_seconds": null },
+    { "band": "MEDIUM", "min_seconds": 2.0, "max_seconds": 5.0 },
+    { "band": "HIGH", "min_seconds": 1.0, "max_seconds": 2.0 },
+    { "band": "CRITICAL", "min_seconds": 0.0, "max_seconds": 1.0 }
+  ],
+  "alert_thresholds": {
+    "$comment": "Defaults only. Runtime values are read from the settings collection so operators can tune them per deployment.",
+    "level_1_min_risk": 50,
+    "level_2_min_risk": 75,
+    "level_3_min_risk": 90,
+    "max_lateral_distance_m": 120,
+    "approach_distance_m": { "LEVEL_1": 400, "LEVEL_2": 600, "LEVEL_3": 900 },
+    "bearing_tolerance_deg": 60,
+    "cooldown_seconds": { "LEVEL_1": 300, "LEVEL_2": 180, "LEVEL_3": 120 },
+    "min_speed_kmh": 5
+  },
+  "event_category_map": {
+    "HELMET_VIOLATION": "VIOLATION",
+    "SEATBELT_VIOLATION": "VIOLATION",
+    "TRIPLE_RIDING": "VIOLATION",
+    "WRONG_WAY": "VIOLATION",
+    "RED_LIGHT_VIOLATION": "VIOLATION",
+    "STOP_LINE_VIOLATION": "VIOLATION",
+    "DANGEROUS_LANE_CHANGE": "VIOLATION",
+    "OVERSPEED": "VIOLATION",
+    "HARD_BRAKING": "BEHAVIOR",
+    "SUDDEN_ACCELERATION": "BEHAVIOR",
+    "DISTRACTED_RIDING": "BEHAVIOR",
+    "PEDESTRIAN_CONFLICT": "INTERACTION",
+    "NEAR_MISS": "INTERACTION",
+    "COLLISION_RISK": "INTERACTION",
+    "HAZARD_REPORT": "REPORT"
+  },
+  "collections": [
+    "users", "cameras", "video_jobs", "video_analysis", "detections",
+    "tracking_events", "violations", "near_misses", "risk_events",
+    "road_segments", "risk_zones", "alerts", "driver_reports",
+    "notifications", "model_versions", "analytics", "settings", "trips"
+  ]
+}

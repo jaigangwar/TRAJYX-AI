@@ -1,0 +1,54 @@
+[project]
+name = "trajyx-backend"
+version = "0.1.0"
+description = "TRAJYX API service — predictive road safety and traffic intelligence."
+requires-python = ">=3.10"
+
+# Runtime dependencies are pinned in requirements.txt so the API image can be
+# built without the CV/ML extras. This file carries tool configuration.
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+src = ["."]
+
+[tool.ruff.lint]
+select = [
+  "E",    # pycodestyle errors
+  "F",    # pyflakes
+  "I",    # import sorting
+  "UP",   # pyupgrade
+  "B",    # bugbear
+  "C4",   # comprehensions
+  "SIM",  # simplify
+  "RET",  # return consistency
+  "ASYNC",
+]
+ignore = [
+  "B008",  # FastAPI's Depends() in defaults is the documented idiom.
+  "E501",  # line length is enforced by the formatter, not the linter.
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B011"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
+check_untyped_defs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+testpaths = ["../tests/backend"]
+pythonpath = ["."]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-q --strict-markers"
+markers = [
+  "integration: exercises more than one subsystem together",
+  "slow: takes more than a couple of seconds",
+]

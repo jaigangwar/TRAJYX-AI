@@ -1,0 +1,154 @@
+/* ===========================================================================
+   TRAJYX design tokens
+   ---------------------------------------------------------------------------
+   Visual reference: traffic operations centre + enterprise GIS + automotive
+   safety instrumentation. Restrained, dense, legible at a glance from across
+   a control room.
+
+   Rules this file encodes:
+     - Charcoal/slate ground, single teal accent taken from the brand mark.
+     - Safety colours (green/amber/orange/red) are reserved for risk semantics.
+       They never appear as decoration, so an operator can trust that anything
+       amber or red means something.
+     - Small radii (2-4px), 1px borders, tight spacing scale. No glassmorphism,
+       no gradients outside the brand mark, no glow.
+     - Tabular numerals everywhere a number is compared or scanned.
+   =========================================================================== */
+
+@theme {
+  /* ---------------------------------------------------------- typography --- */
+  --font-sans:
+    "Inter var", "Inter", "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Compact scale. Body text sits at 13px: control-room density, not marketing. */
+  --text-2xs: 0.6875rem; /* 11px — dense table meta, axis labels */
+  --text-2xs--line-height: 1rem;
+  --text-xs: 0.75rem; /* 12px — table body, secondary labels */
+  --text-xs--line-height: 1.125rem;
+  --text-sm: 0.8125rem; /* 13px — default body */
+  --text-sm--line-height: 1.25rem;
+  --text-base: 0.875rem; /* 14px — emphasised body */
+  --text-base--line-height: 1.375rem;
+  --text-lg: 1rem; /* 16px — panel titles */
+  --text-lg--line-height: 1.5rem;
+  --text-xl: 1.25rem; /* 20px — page titles */
+  --text-xl--line-height: 1.75rem;
+  --text-2xl: 1.75rem; /* 28px — KPI values */
+  --text-2xl--line-height: 2rem;
+  --text-3xl: 2.25rem; /* 36px — the single hero metric on a page, at most */
+  --text-3xl--line-height: 2.5rem;
+
+  /* ------------------------------------------------------------- surfaces --- */
+  /* Layered charcoal. Each step is a real elevation level, not decoration. */
+  --color-ground: #0d1114; /* app background, behind everything */
+  --color-surface: #14191d; /* panels, cards, table bodies */
+  --color-surface-raised: #1a2126; /* popovers, drawers, active rows */
+  --color-surface-sunken: #0a0e11; /* map canvas, video letterbox, code */
+  --color-surface-hover: #1f272d;
+
+  /* --------------------------------------------------------------- lines --- */
+  --color-line: #232c33; /* default 1px divider */
+  --color-line-strong: #313c45; /* panel edge, table header underline */
+  --color-line-subtle: #1b2227; /* inner row separators */
+
+  /* ----------------------------------------------------------------- ink --- */
+  --color-ink: #e8edf1; /* primary text */
+  --color-ink-muted: #9aa7b2; /* labels, secondary text */
+  --color-ink-subtle: #6b7884; /* meta, placeholders, disabled */
+  --color-ink-inverse: #0d1114; /* text on accent/safety fills */
+
+  /* --------------------------------------------------------------- brand --- */
+  /* Teal from the TRAJYX mark. Used for selection, focus and interactive
+     affordances only — never to signal risk. */
+  --color-accent: #14b8a1;
+  --color-accent-hover: #19cfb6;
+  --color-accent-press: #0f9a87;
+  --color-accent-dim: #0d3b36; /* tinted fill behind accent text */
+  --color-accent-line: #1a5e56;
+
+  /* -------------------------------------------------------------- safety --- */
+  /* The risk vocabulary. Chosen for separation under the dark ground and to
+     stay distinguishable for the common forms of colour-vision deficiency;
+     risk level is always paired with a text label, never colour alone. */
+  --color-risk-low: #3fb950;
+  --color-risk-low-dim: #10291a;
+  --color-risk-moderate: #d9a520;
+  --color-risk-moderate-dim: #2e2510;
+  --color-risk-high: #e8833a;
+  --color-risk-high-dim: #331f11;
+  --color-risk-critical: #e5484d;
+  --color-risk-critical-dim: #3a1417;
+
+  /* ---------------------------------------------------------- status/info --- */
+  --color-info: #3b82f6;
+  --color-info-dim: #10243f;
+  --color-offline: #6b7884;
+  --color-offline-dim: #1c2227;
+
+  /* ------------------------------------------------------------- spacing --- */
+  /* 4px base. Panels use 12/16; tables use 6/8. */
+  --spacing: 0.25rem;
+
+  /* -------------------------------------------------------------- radius --- */
+  /* Deliberately small. Large radii are the clearest tell of a generated UI. */
+  --radius-xs: 2px;
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+
+  /* ------------------------------------------------------------- shadows --- */
+  /* Only for genuinely floating layers. Panels use borders, not shadows. */
+  --shadow-popover: 0 4px 16px -2px rgb(0 0 0 / 0.5), 0 0 0 1px rgb(35 44 51 / 1);
+  --shadow-drawer: -8px 0 24px -8px rgb(0 0 0 / 0.55);
+
+  /* --------------------------------------------------------------- other --- */
+  --color-focus-ring: #2dd4bf;
+}
+
+/* ===========================================================================
+   Light theme
+   ---------------------------------------------------------------------------
+   Operators work in dim rooms; analysts often do not. Both are first class.
+   Only token values change — no component ever branches on theme.
+   =========================================================================== */
+:root[data-theme="light"] {
+  --color-ground: #f5f7f8;
+  --color-surface: #ffffff;
+  --color-surface-raised: #ffffff;
+  --color-surface-sunken: #eceff1;
+  --color-surface-hover: #f0f3f5;
+
+  --color-line: #d9dfe3;
+  --color-line-strong: #c2cbd1;
+  --color-line-subtle: #e7ebee;
+
+  --color-ink: #11181d;
+  --color-ink-muted: #4f5b64;
+  --color-ink-subtle: #78848d;
+  --color-ink-inverse: #ffffff;
+
+  --color-accent: #0f9585;
+  --color-accent-hover: #0b7f71;
+  --color-accent-press: #096a5e;
+  --color-accent-dim: #e0f5f1;
+  --color-accent-line: #9dd8ce;
+
+  --color-risk-low: #1a7f37;
+  --color-risk-low-dim: #e3f5e7;
+  --color-risk-moderate: #9a6700;
+  --color-risk-moderate-dim: #fbf1d5;
+  --color-risk-high: #bc4c00;
+  --color-risk-high-dim: #fdeadd;
+  --color-risk-critical: #cf222e;
+  --color-risk-critical-dim: #fbe5e7;
+
+  --color-info: #1f6feb;
+  --color-info-dim: #ddeaff;
+  --color-offline: #78848d;
+  --color-offline-dim: #eceff1;
+
+  --shadow-popover: 0 4px 16px -4px rgb(16 24 32 / 0.16), 0 0 0 1px rgb(217 223 227 / 1);
+  --shadow-drawer: -8px 0 24px -10px rgb(16 24 32 / 0.18);
+}
