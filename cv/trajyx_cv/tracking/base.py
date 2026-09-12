@@ -41,8 +41,19 @@ class TrackerConfig:
     """How long a track survives without a match before being dropped. Should
     be roughly one second of frames, so scale it with the source frame rate."""
 
-    minimum_matching_threshold: float = 0.8
-    """IoU threshold for associating a detection with an existing track."""
+    minimum_matching_threshold: float = 0.25
+    """Minimum **IoU** to associate a detection with an existing track.
+
+    Note this is an IoU *score*, not ByteTrack's published ``match_thresh`` of
+    0.8 — that figure is a threshold on a cost matrix of ``1 - IoU``, i.e. it
+    accepts IoU >= 0.2. Using 0.8 as a raw IoU score rejects any vehicle moving
+    more than a few pixels per frame, which breaks identity on exactly the
+    fast-moving traffic this system exists to analyse.
+    """
+
+    second_pass_threshold: float = 0.15
+    """Relaxed IoU for the low-confidence rescue pass. Lower because a
+    partially occluded box overlaps its prediction less."""
 
     frame_rate: float = 25.0
     """Source frame rate, after any frame-stride sampling. Buffers are

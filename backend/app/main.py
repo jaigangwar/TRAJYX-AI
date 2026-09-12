@@ -24,6 +24,7 @@ from app.core.logging import configure_logging
 from app.core.middleware import RequestContextMiddleware, SecurityHeadersMiddleware
 from app.repositories.factory import create_document_store, create_storage_backend
 from app.services.auth.factory import create_auth_provider
+from app.workers.analysis import AnalysisRunner, InProcessJobQueue
 
 log = structlog.get_logger(__name__)
 
@@ -55,6 +56,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.store = create_document_store(settings)
     app.state.storage = create_storage_backend(settings)
     app.state.auth_provider = create_auth_provider(settings, app.state.store)
+
+    runner = AnalysisRunner(app.state.store, app.state.storage, settings)
+    runner.bind_loop()
+    app.state.job_queue = InProcessJobQueue(runner, concurrency=settings.worker_concurrency)
 
     log.info(
         "startup.ready",

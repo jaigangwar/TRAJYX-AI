@@ -37,16 +37,36 @@ class StopLine(ApiModel):
 
 
 class LaneDirection(ApiModel):
-    """Expected direction of travel for one lane.
+    """Expected direction of travel for one lane, and where that lane is.
 
     `heading_deg` is degrees clockwise from image-up, the same convention the
-    CV pipeline uses, so a tracked heading can be compared directly. Wrong-way
-    detection is the difference between a track heading and this value.
+    CV pipeline uses, so a tracked heading compares directly.
+
+    The `region_y` band is what makes wrong-way detection usable. Comparing a
+    heading against the closest configured heading is useless on a two-way
+    road: a car driving east in the westbound lane matches the eastbound lane
+    perfectly. The lane a vehicle occupies has to be decided by position
+    first. Without a region, wrong-way detection reports itself unavailable
+    rather than guessing.
     """
 
     lane_index: int = Field(ge=0)
     heading_deg: float = Field(ge=0, lt=360)
     label: str | None = Field(default=None, max_length=60)
+    region_y_min: float | None = Field(
+        default=None, ge=0, description="Top of the lane band, in image pixels."
+    )
+    region_y_max: float | None = Field(
+        default=None, ge=0, description="Bottom of the lane band, in image pixels."
+    )
+
+    @field_validator("region_y_max")
+    @classmethod
+    def _band_is_ordered(cls, value: float | None, info) -> float | None:
+        minimum = info.data.get("region_y_min")
+        if value is not None and minimum is not None and value <= minimum:
+            raise ValueError("region_y_max must be greater than region_y_min")
+        return value
 
 
 class Calibration(ApiModel):
@@ -133,7 +153,9 @@ class CameraCapabilities(ResponseModel):
     """
 
     speed_estimation: bool = Field(description="Requires calibration.")
-    wrong_way_detection: bool = Field(description="Requires at least one lane direction.")
+    wrong_way_detection: bool = Field(
+        description="Requires at least one lane with both a heading and an image y band."
+    )
     stop_line_violation: bool = Field(description="Requires a stop line.")
     red_light_violation: bool = Field(description="Requires a stop line and a known signal phase.")
 
@@ -141,7 +163,14 @@ class CameraCapabilities(ResponseModel):
     def derive(cls, document: dict[str, object]) -> CameraCapabilities:
         has_stop_line = isinstance(document.get("stop_line"), dict)
         lanes = document.get("lane_directions")
-        has_lanes = isinstance(lanes, list) and len(lanes) > 0
+        # A heading alone is not enough: without a region the detector cannot
+        # tell which lane a vehicle is in, so it reports unavailable.
+        has_lanes = isinstance(lanes, list) and any(
+            isinstance(lane, dict)
+            and lane.get("region_y_min") is not None
+            and lane.get("region_y_max") is not None
+            for lane in lanes
+        )
         signal_known = str(document.get("signal_state", SignalState.UNKNOWN.value)) != (
             SignalState.UNKNOWN.value
         )

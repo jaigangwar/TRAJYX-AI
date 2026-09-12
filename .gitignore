@@ -1,62 +1,58 @@
-# ---- Secrets ----
-.env
-.env.local
-.env.*.local
-*serviceAccount*.json
+
 !*serviceAccount*.example.json
-firebase/service-account.json
-.firebase/
-
-# ---- Python ----
-__pycache__/
-*.py[cod]
-*.egg-info/
-.venv/
-venv/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-htmlcov/
-.coverage
-
-# ---- Node ----
-node_modules/
-dist/
-dist-ssr/
-.vite/
-*.tsbuildinfo
-coverage/
-
+!.vscode/extensions.json
+!datasets/raw/.gitkeep
+!datasets/samples/*.mp4
+!models/artifacts/.gitkeep
+!models/weights/.gitkeep
 # ---- Flutter / Dart ----
+# ---- Node ----
+# ---- OS / editor ----
+# ---- Python ----
+# ---- Runtime data / artifacts ----
+# ---- Secrets ----
+*.avi
+*.egg-info/
+*.iml
+*.mkv
+*.mp4
+*.py[cod]
+*.tsbuildinfo
+*serviceAccount*.json
+.DS_Store
+.coverage
+.env
+.env.*.local
+.env.local
+.firebase/
+.idea/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.venv/
+.verify/
+.vite/
+.vscode/*
+Thumbs.db
+__pycache__/
+coverage/
+data/
+datasets/raw/*
+dist-ssr/
+dist/
+firebase/service-account.json
+htmlcov/
 mobile/.dart_tool/
-mobile/build/
 mobile/.flutter-plugins
 mobile/.flutter-plugins-dependencies
 mobile/android/.gradle/
 mobile/android/local.properties
+mobile/build/
 mobile/ios/Pods/
-*.iml
-
-# ---- Runtime data / artifacts ----
-data/
+models/artifacts/*
+models/weights/*
+node_modules/
 storage/
 var/
-models/weights/*
-!models/weights/.gitkeep
-models/artifacts/*
-!models/artifacts/.gitkeep
-datasets/raw/*
-!datasets/raw/.gitkeep
-*.mp4
-*.mkv
-*.avi
-!datasets/samples/*.mp4
-
-# ---- OS / editor ----
-.DS_Store
-Thumbs.db
-.idea/
-.vscode/*
-!.vscode/extensions.json
-.verify/
-data/
+venv/
+yolov8n.pt

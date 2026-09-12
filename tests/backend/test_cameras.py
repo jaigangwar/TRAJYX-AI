@@ -101,9 +101,15 @@ class TestCapabilities:
         )
         assert camera["capabilities"]["speed_estimation"] is True
 
-    def test_lane_directions_enable_wrong_way_detection(
+    def test_lane_headings_alone_do_not_enable_wrong_way_detection(
         self, client: TestClient, admin_token: str
     ) -> None:
+        """A heading without a region cannot say which lane a vehicle is in.
+
+        Comparing a heading against the closest configured heading declares an
+        eastbound car in the westbound lane perfectly fine, which is every
+        two-way road. So the capability requires a lane region as well.
+        """
         camera = create_camera(
             client,
             admin_token,
@@ -112,8 +118,50 @@ class TestCapabilities:
                 {"lane_index": 1, "heading_deg": 270.0, "label": "Westbound"},
             ],
         )
-        assert camera["capabilities"]["wrong_way_detection"] is True
+        assert camera["capabilities"]["wrong_way_detection"] is False
         assert len(camera["lane_directions"]) == 2
+
+    def test_lane_regions_enable_wrong_way_detection(
+        self, client: TestClient, admin_token: str
+    ) -> None:
+        camera = create_camera(
+            client,
+            admin_token,
+            lane_directions=[
+                {
+                    "lane_index": 0,
+                    "heading_deg": 90.0,
+                    "label": "Eastbound",
+                    "region_y_min": 225,
+                    "region_y_max": 340,
+                },
+                {
+                    "lane_index": 1,
+                    "heading_deg": 270.0,
+                    "label": "Westbound",
+                    "region_y_min": 395,
+                    "region_y_max": 500,
+                },
+            ],
+        )
+        assert camera["capabilities"]["wrong_way_detection"] is True
+        assert camera["lane_directions"][0]["region_y_max"] == 340
+
+    def test_an_inverted_lane_region_is_rejected(
+        self, client: TestClient, admin_token: str
+    ) -> None:
+        response = client.post(
+            "/api/v1/cameras",
+            headers=auth_header(admin_token),
+            json={
+                **JUNCTION,
+                "name": "Inverted band",
+                "lane_directions": [
+                    {"lane_index": 0, "heading_deg": 90.0, "region_y_min": 400, "region_y_max": 200}
+                ],
+            },
+        )
+        assert response.status_code == 422
 
     def test_a_stop_line_alone_does_not_enable_red_light_detection(
         self, client: TestClient, admin_token: str
