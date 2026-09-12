@@ -18,10 +18,14 @@ import { NAV_ITEMS } from "@/app/navigation";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { RequireRole, RequireStaff } from "@/features/auth/guards";
 import { AuthenticatedDashboard } from "@/layouts/AuthenticatedDashboard";
+import { CamerasPage } from "@/pages/CamerasPage";
 import { DriverNoticePage } from "@/pages/DriverNoticePage";
+import { EventsPage } from "@/pages/EventsPage";
+import { MonitoringPage } from "@/pages/MonitoringPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { OverviewPage } from "@/pages/OverviewPage";
 import { PhasePendingPage } from "@/pages/PhasePendingPage";
+import { SettingsPage } from "@/pages/SettingsPage";
 
 /**
  * Wrap a section in the role list `navigation.ts` declares for it.
@@ -55,20 +59,7 @@ export const routes: RouteObject[] = [
 
       {
         path: "monitoring",
-        element: guarded(
-          "/monitoring",
-          <PhasePendingPage
-            title="Live Monitoring"
-            path="/monitoring"
-            summary="A grid of configured cameras with live status, current traffic level and risk, opening into a single-camera view with its recent events and detections."
-            planned={[
-              "Camera grid with ONLINE / OFFLINE / PROCESSING / ALERT status",
-              "Per-camera traffic level and current risk score",
-              "Single-camera detail view with recent events and detections",
-              "Video-file simulation for cameras without a live stream, clearly labeled",
-            ]}
-          />,
-        ),
+        element: guarded("/monitoring", <MonitoringPage />),
       },
       {
         path: "analysis",
@@ -89,20 +80,7 @@ export const routes: RouteObject[] = [
       },
       {
         path: "cameras",
-        element: guarded(
-          "/cameras",
-          <PhasePendingPage
-            title="Cameras"
-            path="/cameras"
-            summary="The camera registry: location, road segment, calibration and signal configuration for each installed unit."
-            planned={[
-              "Camera CRUD with location and road-segment assignment",
-              "Stop line, lane direction and signal-phase configuration",
-              "Calibration state, which gates speed estimation",
-              "Per-camera processing history",
-            ]}
-          />,
-        ),
+        element: guarded("/cameras", <CamerasPage />),
       },
 
       {
@@ -126,16 +104,12 @@ export const routes: RouteObject[] = [
         path: "violations",
         element: guarded(
           "/violations",
-          <PhasePendingPage
+          <EventsPage
             title="Violations"
-            path="/violations"
-            summary="Every detected traffic violation, with the evidence snapshot, detection confidence and review status."
-            planned={[
-              "Table: timestamp, camera, vehicle, violation, confidence, status, snapshot",
-              "Filters by type, date, camera, confidence and review status",
-              "Evidence drawer with the source frame and detection metadata",
-              "Operator review workflow: confirm or reject",
-            ]}
+            subtitle="Detected traffic violations and their review state"
+            preset={{ category: "VIOLATION" }}
+            emptyMessage="No violations recorded for these filters."
+            emptyHint="Violations appear once footage has been analysed. Each camera can only report the violations its configured geometry supports."
           />,
         ),
       },
@@ -143,16 +117,13 @@ export const routes: RouteObject[] = [
         path: "near-misses",
         element: guarded(
           "/near-misses",
-          <PhasePendingPage
+          <EventsPage
             title="Near Misses"
-            path="/near-misses"
-            summary="Conflicts that did not become collisions: the events that carry the most predictive value for road risk."
-            planned={[
-              "Event list with estimated TTC, risk score and contributing factors",
-              "Involved track IDs and their trajectories",
-              "Evidence clip and snapshot",
-              "Severity-coloured risk presentation",
-            ]}
+            subtitle="Conflicts that did not become collisions"
+            preset={{ event_type: "NEAR_MISS" }}
+            showTtc
+            emptyMessage="No near misses recorded for these filters."
+            emptyHint="Near misses are produced by the interaction and collision-risk engines in phase 8."
           />,
         ),
       },
@@ -160,16 +131,12 @@ export const routes: RouteObject[] = [
         path: "incidents",
         element: guarded(
           "/incidents",
-          <PhasePendingPage
+          <EventsPage
             title="Incidents"
-            path="/incidents"
-            summary="Hazards and incidents reported by drivers from the mobile app, queued for operator review."
-            planned={[
-              "Driver hazard report queue with location and optional photo",
-              "Review workflow: pending, reviewing, confirmed, rejected",
-              "Map view of reported hazards",
-              "Confirmed reports feed back into road-segment risk",
-            ]}
+            subtitle="Hazards reported by drivers, queued for review"
+            preset={{ event_type: "HAZARD_REPORT" }}
+            emptyMessage="No hazard reports submitted."
+            emptyHint="Drivers submit these from the mobile app; reporting lands in phase 15."
           />,
         ),
       },
@@ -227,20 +194,7 @@ export const routes: RouteObject[] = [
       },
       {
         path: "settings",
-        element: guarded(
-          "/settings",
-          <PhasePendingPage
-            title="Settings"
-            path="/settings"
-            summary="Deployment configuration: users and roles, alert thresholds, retention and demo mode."
-            planned={[
-              "User and role administration",
-              "Driver alert thresholds, distances and cooldowns",
-              "Data retention windows",
-              "Demo mode control and demo-data purge",
-            ]}
-          />,
-        ),
+        element: guarded("/settings", <SettingsPage />),
       },
     ],
   },

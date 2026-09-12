@@ -35,6 +35,46 @@ export const HEALTH_PAYLOAD = {
   warnings: ["Data backend is LOCAL (on-disk JSON store)."],
 };
 
+export const SUMMARY_PAYLOAD = {
+  generated_at: "2026-09-12T10:00:00Z",
+  window_hours: 24,
+  demo_mode: true,
+  cameras: { total: 2, online: 1, offline: 1, processing: 0, alert: 0 },
+  events: {
+    window_hours: 24,
+    total: 3,
+    violations: 2,
+    behaviour: 1,
+    interactions: 0,
+    reports: 0,
+    near_misses: 0,
+    critical: 0,
+    demo: 1,
+  },
+  risk: {
+    average_risk: {
+      value: null,
+      available: false,
+      unavailable_reason: "No risk zones have been computed yet. Geospatial aggregation lands in phase 10.",
+      unit: null,
+    },
+    highest_risk_level: null,
+    high_risk_zones: { value: null, available: false, unavailable_reason: "Not yet", unit: null },
+    zones_by_level: {},
+  },
+  pipeline: {
+    vehicles_detected: {
+      value: null,
+      available: false,
+      unavailable_reason: "No video has been analysed yet. Detection lands in phase 4.",
+      unit: null,
+    },
+    pedestrians_detected: { value: null, available: false, unavailable_reason: "n/a", unit: null },
+    videos_analysed: { value: 0, available: true, unavailable_reason: null, unit: null },
+  },
+  recent_events: [] as unknown[],
+};
+
 export function userFor(role: Role, overrides: Partial<User> = {}): User {
   return {
     id: `user-${role.toLowerCase()}`,
@@ -128,6 +168,10 @@ export function renderAsRole(role: Role, path: string, extraStubs: RouteStub[] =
   stubFetch([
     { match: "/auth/me", body: user },
     { match: "/health", body: HEALTH_PAYLOAD },
+    { match: "/dashboard/summary", body: SUMMARY_PAYLOAD },
+    { match: "/dashboard/camera-grid", body: { items: [], total: 0 } },
+    { match: "/cameras", body: { items: [], next_cursor: null } },
+    { match: "/events", body: { items: [], next_cursor: null } },
     ...extraStubs,
   ]);
   return renderApp(path);
