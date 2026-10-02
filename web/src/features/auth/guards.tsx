@@ -34,31 +34,22 @@ function SessionLoading() {
 export function RequireAuth({ children }: { children?: ReactNode }) {
   const { status } = useAuth();
   const location = useLocation();
-
   if (status === "loading") return <SessionLoading />;
   if (status === "unauthenticated") {
-    // Remember where they were headed so sign-in can return them there.
     return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   }
   return children ? <>{children}</> : <Outlet />;
 }
 
-/**
- * Requires a role that can use the dashboard.
- *
- * A driver holds a valid session but has no dashboard sections at all, so they
- * are sent to an explanation rather than to a permission error.
- */
+/** Requires a role that can use the dashboard. */
 export function RequireStaff({ children }: { children?: ReactNode }) {
   const { status, role } = useAuth();
   const location = useLocation();
-
   if (status === "loading") return <SessionLoading />;
   if (status === "unauthenticated") {
     return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   }
   if (!isStaff(role)) return <Navigate to="/driver-notice" replace />;
-
   return children ? <>{children}</> : <Outlet />;
 }
 
@@ -67,23 +58,14 @@ interface RequireRoleProps {
   children?: ReactNode;
 }
 
-/**
- * Requires one of the listed roles.
- *
- * A permitted-but-wrong role is redirected to its own landing section rather
- * than shown a bare "forbidden" page: they are not doing anything wrong, the
- * link simply is not theirs.
- */
+/** Requires one of the listed roles. */
 export function RequireRole({ roles, children }: RequireRoleProps) {
   const { status, role } = useAuth();
   const location = useLocation();
-
   if (status === "loading") return <SessionLoading />;
   if (status === "unauthenticated") {
     return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   }
-  if (!role || !roles.includes(role)) {
-    return <Navigate to={defaultRouteForRole(role)} replace />;
-  }
+  if (!role || !roles.includes(role)) return <Navigate to={defaultRouteForRole(role)} replace />;
   return children ? <>{children}</> : <Outlet />;
 }

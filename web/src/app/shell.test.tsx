@@ -125,16 +125,43 @@ describe("dashboard shell", () => {
     expect(screen.getAllByText("Firestore is unavailable.").length).toBeGreaterThan(0);
   });
 
-  it("states plainly that an unimplemented section is not built yet", async () => {
-    renderAsRole("ADMIN", "/risk-map");
+  // This replaces a test that asserted /risk-map said "not implemented yet".
+  // Every navigation section now resolves to a real page, so the honesty
+  // property it guarded — a section must never show a number it has not
+  // computed — is asserted against a real page instead of a placeholder.
+  it("states that a rate it cannot compute is undeterminable, rather than showing a number", async () => {
+    renderAsRole("ADMIN", "/analytics");
+
+    // The violation count is measured and shown.
+    expect(await screen.findByText("Helmet violations detected")).toBeInTheDocument();
+
+    // The compliance *rate* has an unknown denominator, so it must be refused
+    // in words. Critically, it must not appear as 0, or as 4 borrowed from the
+    // violation count beside it.
+    const rate = await screen.findByText(/A compliance rate needs a rider count/i);
+    expect(rate).toBeInTheDocument();
+    expect(screen.getAllByText(/Unable to determine/i).length).toBeGreaterThan(0);
+  });
+
+  it("discloses the synthetic share of an analytics window", async () => {
+    renderAsRole("ADMIN", "/analytics");
 
     expect(
-      await screen.findByText(/This section is not implemented yet/i),
+      await screen.findByText(/10 of 40 records below are synthetic/i),
     ).toBeInTheDocument();
-    // Honesty check: a placeholder must not fabricate metrics.
-    expect(
-      screen.getByText(/does not display numbers it has not actually computed/i),
-    ).toBeInTheDocument();
+  });
+
+  it("does not plot a zero for an hour that recorded events but scored none", async () => {
+    renderAsRole("ADMIN", "/analytics");
+
+    await screen.findByText("Mean risk by hour of day");
+
+    // 03:00 has four events and no scored ones. The chart labels that slot as
+    // unmeasured; an implementation that coerced null to 0 would instead
+    // report a risk score for an hour nothing was scored in.
+    const slot = await screen.findByTitle(/^03:00: not measured/);
+    expect(slot).toBeInTheDocument();
+    expect(slot.getAttribute("title")).toMatch(/4 events, none carried a score/);
   });
 
   it("redirects the index route to overview", async () => {

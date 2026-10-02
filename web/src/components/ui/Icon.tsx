@@ -13,6 +13,7 @@ const PATHS: Record<IconName | ExtraIcon, string> = {
   /* --- navigation --------------------------------------------------------- */
   overview: "M2 9.5 6 5l3.5 3.5L14 3.5M14 3.5h-3.5M14 3.5V7M2 13.5h12",
   monitor: "M2 3.5h12v8H2zM6 14h4M8 11.5V14M5 7.5l1.8 1.8L9 6.5l2 2",
+  simulation: "M8 2 14 5v6l-6 3-6-3V5zM8 2v6m0 0 6-3M8 8l-6-3m6 3v6",
   video: "M2 4h8.5v8H2zM10.5 7l3.5-2v6l-3.5-2z",
   map: "M6 2.5 2 4v9.5l4-1.5 4 1.5 4-1.5V2.5L10 4zM6 2.5V12M10 4v9.5",
   violation: "M8 2 1.5 13.5h13zM8 6.5v3.5M8 11.8v.2",
@@ -40,6 +41,7 @@ const PATHS: Record<IconName | ExtraIcon, string> = {
   logout: "M6 13.5H3V2.5h3M9.5 11l3-3-3-3M12.5 8H6",
   clock: "M8 14A6 6 0 1 0 8 2a6 6 0 0 0 0 12M8 4.5V8l2.5 1.5",
   play: "M5 3.5 12 8l-7 4.5z",
+  pause: "M5 3.5h2.5v9H5zM8.5 3.5H11v9H8.5z",
   pin: "M8 14V9M8 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6",
   sun: "M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M8 1.5v1.5M8 13v1.5M2.8 2.8l1 1M12.2 12.2l1 1M1.5 8H3M13 8h1.5M2.8 13.2l1-1M12.2 3.8l1-1",
   moon: "M13 9.5A5.5 5.5 0 0 1 6.5 3a5.5 5.5 0 1 0 6.5 6.5",
@@ -62,6 +64,7 @@ type ExtraIcon =
   | "logout"
   | "clock"
   | "play"
+  | "pause"
   | "pin"
   | "sun"
   | "moon"

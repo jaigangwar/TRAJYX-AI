@@ -68,6 +68,13 @@ export const analysisSchema = z.object({
   camera_id: z.string().nullable().optional(),
   frame_width: z.number(),
   frame_height: z.number(),
+  camera_calibration: z.object({
+    metres_per_pixel_at_reference: z.number(),
+    reference_y: z.number(),
+    frame_height: z.number(),
+    depth_factor: z.number(),
+  }).nullable().optional(),
+  calibration_note: z.string().nullable().optional(),
   frame_rate: z.number(),
   frame_count: z.number(),
   duration_s: z.number(),

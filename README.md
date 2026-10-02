@@ -29,22 +29,30 @@ OBSERVE  ->  TRACK  ->  UNDERSTAND  ->  PREDICT  ->  WARN  ->  LEARN
 
 ## Current state
 
-**Phase 1 of 20 complete.** Working today: the monorepo and shared domain
-contract, a FastAPI backend with pluggable persistence and object storage, full
-authentication with four roles enforced server-side, user administration, a
-React dashboard with sign-in and role-based routing, and a Flutter driver app
-with secure session storage.
+**Phases 0–8, 10–12 and 16 are complete.** The repository includes the video
+analysis pipeline, explainable risk engine, GIS alerts, analytics, calibrated
+3D conflict replay, reports, role-based dashboard and secure driver-app
+foundation. See
+[**DEVELOPMENT_STATUS.md**](DEVELOPMENT_STATUS.md) for the verified state.
 
-No detection, tracking or risk analysis exists yet — those are phases 4 to 9.
-The dashboard and mobile app show real data from the API and say plainly, on
-each unimplemented section, which phase delivers it. Nothing is mocked to look
-finished.
+The dashboard has 13 sections, including a new interactive junction
+simulation. That screen is an explicitly labelled visual demo: its moving
+tracks and proximity score are synthetic and are not CCTV measurements. The
+other dashboard pages read from the API and preserve the `MEASURED`,
+`ESTIMATED` and `DEMO` distinction.
 
-**216 automated tests**, 9/9 verification checks green, plus a real-browser
-end-to-end sign-in check.
+**Still needed for an end-to-end deployment:** labelled real-world data and an
+evaluated ML model, driver-facing mobile features, Firebase project
+configuration, production hardening and the remaining technical/demo
+documentation. The simulation helps present the workflow while those
+separate items are built; it does not replace them. See
+[**REMAINING.md**](REMAINING.md) for the work and its dependencies.
 
-[**DEVELOPMENT_STATUS.md**](DEVELOPMENT_STATUS.md) is the authoritative record
-of what works, what does not, and what was actually tested.
+The last recorded full baseline is **341 automated tests** and **9/9
+verification checks**, plus real-browser checks for sign-in, page rendering
+and report export. The current web build passes; automated tests were not
+rerun for the latest changes. Python workflow checks are pending because the
+configured Python runtime is unavailable in the current environment.
 
 ## Quick start
 
@@ -58,12 +66,24 @@ py -3.10 -m venv .venv                                   # Windows
 
 # 2. Backend
 cp backend/.env.example backend/.env
+python scripts/seed_admin.py                             # creates the first admin
 python scripts/dev_api.py                                # -> http://127.0.0.1:8000/docs
 
-# 3. Dashboard
+# 3. Dashboard  (new terminal)
 cd web && npm install && cp .env.example .env && npm run dev
                                                          # -> http://localhost:5173
+
+# 4. Optional: demo data, so the map and analytics have something to show
+python scripts/seed_demo.py                              # every record tagged origin=DEMO
 ```
+
+`seed_admin.py` prints the credentials it creates; sign in with those. Without
+step 2 there is no account to sign in with, and without step 4 the Risk Map and
+Analytics pages will correctly report that nothing has been measured yet.
+
+Demo records are labelled `origin=DEMO` end to end — badge in the UI, a
+disclosure banner on Analytics, and a warning line in every CSV export.
+`python scripts/seed_demo.py --purge` removes them and touches nothing else.
 
 Full instructions, including the mobile app: [docs/local-setup.md](docs/local-setup.md)
 
@@ -103,7 +123,7 @@ Detail: [docs/architecture.md](docs/architecture.md)
 |-------|--------|-----|
 | Web | React 19, TypeScript, Vite, Tailwind v4 | Dense operations UI, strict types |
 | Maps | MapLibre GL | Production GIS rendering with no mandatory API key |
-| Charts | Recharts | Composable, no chart-library lock-in |
+| Charts | Hand-rolled SVG | Dense console charts; a null value must render as a gap, not a zero |
 | 3D | Three.js | Used only where 3D adds meaning (phase 12) |
 | Backend | FastAPI, Pydantic v2 | Typed async API, generated OpenAPI |
 | CV | OpenCV, Ultralytics YOLO, ByteTrack | Behind swappable interfaces |
@@ -162,23 +182,29 @@ one.
 
 | | Phase | | | Phase | |
 |---|---|---|---|---|---|
-| 0 | Foundation & monorepo | ✅ | 11 | Analytics | ⬜ |
-| 1 | Auth & database | ✅ | 12 | 3D visualisation | ⬜ |
-| 2 | Dashboard foundation | ⬜ | 13 | Mobile driver app | ⬜ |
-| 3 | Video upload & jobs | ⬜ | 14 | GPS & smart alerts | ⬜ |
-| 4 | YOLO detection | ⬜ | 15 | Hazard reporting | ⬜ |
-| 5 | Object tracking | ⬜ | 16 | Reports & export | ⬜ |
-| 6 | Safety detection | ⬜ | 17 | Demo mode | ⬜ |
-| 7 | Trajectory & interaction | ⬜ | 18 | Testing | ⬜ |
-| 8 | Near-miss & risk engine | ⬜ | 19 | Hardening | ⬜ |
+| 0 | Foundation & monorepo | ✅ | 11 | Analytics | ✅ |
+| 1 | Auth & database | ✅ | 12 | 3D visualisation | ✅ |
+| 2 | Dashboard foundation | ✅ | 13 | Mobile driver app | ⬜ |
+| 3 | Video upload & jobs | ✅ | 14 | GPS & smart alerts | ⬜ |
+| 4 | YOLO detection | ✅ | 15 | Hazard reporting | ⬜ |
+| 5 | Object tracking | ✅ | 16 | Reports & export | ✅ |
+| 6 | Safety detection | ✅ | 17 | Demo mode | ⬜* |
+| 7 | Trajectory & interaction | ✅ | 18 | Testing | ⬜ |
+| 8 | Near-miss & risk engine | ✅ | 19 | Hardening | ⬜ |
 | 9 | ML risk model | ⬜ | 20 | Documentation | ⬜ |
-| 10 | GIS risk map | ⬜ | | | |
+| 10 | GIS risk map | ✅ | | | |
+
+*The interactive simulation is a presentation prototype for phase 17. Full
+demo mode (seeded data across the API, dashboard and exports) remains tracked
+separately in [REMAINING.md](REMAINING.md).
 
 ## Documentation
 
 | Document | Contents |
 |----------|----------|
 | [DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md) | What works, what does not, what was tested |
+| [REMAINING.md](REMAINING.md) | What is left to build, and how to build it |
+| [docs/ml-training.md](docs/ml-training.md) | Labelled data contract and reproducible ML train/evaluate commands |
 | [docs/architecture.md](docs/architecture.md) | System design, adapters, conventions |
 | [docs/local-setup.md](docs/local-setup.md) | Running everything locally |
 | [docs/firebase-setup.md](docs/firebase-setup.md) | Optional cloud configuration |

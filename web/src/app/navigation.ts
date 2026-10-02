@@ -11,6 +11,7 @@ import type { Role } from "@shared/domain";
 export type IconName =
   | "overview"
   | "monitor"
+  | "simulation"
   | "video"
   | "map"
   | "violation"
@@ -59,6 +60,14 @@ export const NAV_ITEMS: readonly NavItem[] = [
     roles: OPERATIONS,
     group: "Operations",
     deliveredInPhase: 2,
+  },
+  {
+    path: "/simulation",
+    label: "Simulation",
+    icon: "simulation",
+    roles: ALL_STAFF,
+    group: "Operations",
+    deliveredInPhase: 17,
   },
   {
     path: "/analysis",

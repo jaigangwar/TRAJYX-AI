@@ -324,6 +324,28 @@ class AnalysisRunner:
             )
         )
         risk = assessment_to_dict(assessment)
+        camera = job.get("camera_snapshot") or {}
+        raw_calibration = camera.get("calibration")
+        camera_calibration: dict[str, float] | None = None
+        calibration_note = "Camera calibration was not configured; the 3D ground-plane view is unavailable."
+        dimensions_match = (
+            camera.get("frame_width") in (None, result.video.width)
+            and camera.get("frame_height") in (None, result.video.height)
+        )
+        if isinstance(raw_calibration, dict) and dimensions_match:
+            camera_calibration = {
+                "metres_per_pixel_at_reference": float(raw_calibration["metres_per_pixel_at_reference"]),
+                "reference_y": float(raw_calibration["reference_y"]),
+                "frame_height": float(camera.get("frame_height") or result.video.height),
+                "depth_factor": float(raw_calibration.get("depth_factor", 0.6)),
+            }
+            calibration_note = (
+                "Ground-plane positions are estimated from the camera's single-scale calibration."
+            )
+        elif isinstance(raw_calibration, dict):
+            calibration_note = (
+                "Configured camera dimensions do not match this video, so calibrated positions are withheld."
+            )
 
         analysis = await self._store.create(
             ANALYSIS,
@@ -332,6 +354,8 @@ class AnalysisRunner:
                 "camera_id": camera_id,
                 "frame_width": result.video.width,
                 "frame_height": result.video.height,
+                "camera_calibration": camera_calibration,
+                "calibration_note": calibration_note,
                 "frame_rate": result.video.frame_rate,
                 "frame_count": result.video.frame_count,
                 "duration_s": round(result.video.duration_s, 2),

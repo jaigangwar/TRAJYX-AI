@@ -6,7 +6,7 @@
  * a timeline event seeks the video to that moment.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge, JobStatusBadge, OriginBadge, RiskBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -30,9 +30,14 @@ import { EVENT_LABELS, formatRelativeTime, formatTimestamp } from "@/lib/format"
 import { riskPresentation } from "@/lib/risk";
 import type { EventType } from "@shared/domain";
 
+const ConflictView3D = lazy(() =>
+  import("@/features/analysis/ConflictView3D").then((module) => ({ default: module.ConflictView3D })),
+);
+
 export function AnalysisPage() {
   const jobs = useJobs();
   const [chosenId, setChosenId] = useState<string | null>(null);
+  const [replayMode, setReplayMode] = useState<"timeline" | "3d">("timeline");
 
   // Derived, not stored: with no explicit choice the newest job is shown, so
   // the page is never empty-looking when there is something to display. Doing
@@ -41,6 +46,7 @@ export function AnalysisPage() {
 
   const job = useJob(selectedId);
   const analysis = useAnalysis(selectedId, job.data?.status === "COMPLETED");
+  const returnToTimeline = useCallback(() => setReplayMode("timeline"), []);
 
   usePageHeader("Video Analysis", "Upload CCTV footage and review what the pipeline found");
 
@@ -68,11 +74,33 @@ export function AnalysisPage() {
         ) : (
           <>
             <Player job={job.data} analysis={analysis.data} />
-            <Timeline
-              analysis={analysis.data}
-              isLoading={analysis.isLoading}
-              status={job.data?.status}
-            />
+            <div className="flex items-center gap-1 border-b border-line">
+              <button
+                type="button"
+                aria-pressed={replayMode === "timeline"}
+                onClick={() => setReplayMode("timeline")}
+                className={`px-3 py-1.5 text-xs ${replayMode === "timeline" ? "border-b-2 border-accent text-accent" : "text-ink-muted hover:text-ink"}`}
+              >2D event timeline</button>
+              <button
+                type="button"
+                aria-pressed={replayMode === "3d"}
+                disabled={!analysis.data?.camera_calibration}
+                title={analysis.data?.calibration_note ?? "3D replay requires a matching camera calibration."}
+                onClick={() => setReplayMode("3d")}
+                className={`px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-45 ${replayMode === "3d" ? "border-b-2 border-accent text-accent" : "text-ink-muted hover:text-ink"}`}
+              >3D conflict view</button>
+            </div>
+            {replayMode === "3d" && analysis.data ? (
+              <Suspense fallback={<Panel><p className="text-ink-muted text-xs">Loading calibrated 3D replay…</p></Panel>}>
+                <ConflictView3D analysis={analysis.data} onUnavailable={returnToTimeline} />
+              </Suspense>
+            ) : (
+              <Timeline
+                analysis={analysis.data}
+                isLoading={analysis.isLoading}
+                status={job.data?.status}
+              />
+            )}
           </>
         )}
       </div>

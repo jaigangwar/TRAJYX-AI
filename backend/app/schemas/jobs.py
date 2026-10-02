@@ -135,6 +135,11 @@ class VideoAnalysisResponse(ResponseModel):
 
     frame_width: int
     frame_height: int
+    camera_calibration: dict[str, float] | None = Field(
+        default=None,
+        description="Camera ground-plane calibration snapshot. Null when unavailable or frame dimensions differ.",
+    )
+    calibration_note: str | None = None
     frame_rate: float
     frame_count: int
     duration_s: float

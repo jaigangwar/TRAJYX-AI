@@ -2,9 +2,9 @@
  * Route table.
  *
  * Every dashboard section declared in `navigation.ts` has a route here, so the
- * menu and the router cannot drift apart — a test asserts the two agree.
- * Sections that are not implemented yet render `PhasePendingPage`, which says
- * so plainly instead of showing invented data.
+ * menu and the router cannot drift apart — a test asserts the two agree. Every
+ * section now resolves to a real page; the placeholder that stood in for
+ * unbuilt sections has been removed along with the last of them.
  *
  * Each section is additionally wrapped in `RequireRole` with the same role list
  * `navigation.ts` declares, so a deep link cannot reach a section the sidebar
@@ -19,14 +19,17 @@ import { LoginPage } from "@/features/auth/LoginPage";
 import { RequireRole, RequireStaff } from "@/features/auth/guards";
 import { AuthenticatedDashboard } from "@/layouts/AuthenticatedDashboard";
 import { AnalysisPage } from "@/pages/AnalysisPage";
+import { AnalyticsPage } from "@/pages/AnalyticsPage";
 import { CamerasPage } from "@/pages/CamerasPage";
 import { DriverNoticePage } from "@/pages/DriverNoticePage";
 import { EventsPage } from "@/pages/EventsPage";
+import { ModelHealthPage } from "@/pages/ModelHealthPage";
 import { MonitoringPage } from "@/pages/MonitoringPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
+import { ReportsPage } from "@/pages/ReportsPage";
+import { SimulationPage } from "@/pages/SimulationPage";
 import { RiskMapPage } from "@/pages/RiskMapPage";
 import { OverviewPage } from "@/pages/OverviewPage";
-import { PhasePendingPage } from "@/pages/PhasePendingPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 
 /**
@@ -62,6 +65,10 @@ export const routes: RouteObject[] = [
       {
         path: "monitoring",
         element: guarded("/monitoring", <MonitoringPage />),
+      },
+      {
+        path: "simulation",
+        element: guarded("/simulation", <SimulationPage />),
       },
       {
         path: "analysis",
@@ -118,55 +125,16 @@ export const routes: RouteObject[] = [
       },
       {
         path: "analytics",
-        element: guarded(
-          "/analytics",
-          <PhasePendingPage
-            title="Analytics"
-            path="/analytics"
-            summary="Aggregate road-safety analysis across time, location and vehicle class."
-            planned={[
-              "Risk by hour, day and weekday",
-              "Violations by category and near misses by hour",
-              "Traffic composition by vehicle class",
-              "Helmet compliance, hard-braking and wrong-way frequency",
-            ]}
-          />,
-        ),
+        element: guarded("/analytics", <AnalyticsPage />),
       },
 
       {
         path: "reports",
-        element: guarded(
-          "/reports",
-          <PhasePendingPage
-            title="Reports"
-            path="/reports"
-            summary="Generated road-safety reporting for operators and traffic authorities."
-            planned={[
-              "Daily, weekly, road-safety, violation and risk-hotspot reports",
-              "CSV and JSON export",
-              "PDF rendering where practical",
-              "Report history with the parameters each run used",
-            ]}
-          />,
-        ),
+        element: guarded("/reports", <ReportsPage />),
       },
       {
         path: "model-health",
-        element: guarded(
-          "/model-health",
-          <PhasePendingPage
-            title="Model Health"
-            path="/model-health"
-            summary="The model registry and its measured performance. Only metrics produced by an actual training or evaluation run are ever displayed."
-            planned={[
-              "Registered model versions with dataset version and training date",
-              "Precision, recall and F1 from the evaluation run that produced them",
-              "Measured inference latency",
-              "Health state: healthy, warning, needs attention",
-            ]}
-          />,
-        ),
+        element: guarded("/model-health", <ModelHealthPage />),
       },
       {
         path: "settings",

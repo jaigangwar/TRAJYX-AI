@@ -40,14 +40,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthToken(null);
     setSession(null);
     setStatus("unauthenticated");
-    // Drop every cached response: the next user must not see the previous
-    // user's data, and a 403 should not be served from cache either.
     queryClient.clear();
   }, [queryClient]);
 
-  // Registered before any request can be made, so nothing races ahead of it.
-  // The client reads the token from the module-scoped holder rather than from
-  // React state, so it always sees the current value.
   useEffect(() => {
     setTokenProvider(getAuthToken);
     setUnauthorizedHandler(endSession);
@@ -57,44 +52,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [endSession]);
 
-  // Restore and verify a stored session on mount.
   useEffect(() => {
     let cancelled = false;
-
     const restore = async () => {
       const stored = loadSession();
       if (!stored) {
         setStatus("unauthenticated");
         return;
       }
-
-      // Make the token available to the verification request itself.
       setAuthToken(stored.token);
-
       try {
         const user = await api.get<User>("/auth/me", { schema: userSchema });
         if (cancelled) return;
-
-        // Trust the server's copy of the profile, not the stored one.
         setSession({ ...stored, user });
         setStatus("authenticated");
       } catch (error) {
         if (cancelled) return;
-        // A 401 or 403 means the token is dead or the account was suspended.
-        // Any other failure (the API being down) also fails closed: showing a
-        // dashboard whose permissions could not be confirmed would be worse
-        // than asking the user to sign in again.
-        if (!(error instanceof ApiError)) {
-          console.error("Session verification failed", error);
-        }
+        if (!(error instanceof ApiError)) console.error("Session verification failed", error);
         endSession();
       }
     };
-
     void restore();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [endSession]);
 
   const signIn = useCallback(

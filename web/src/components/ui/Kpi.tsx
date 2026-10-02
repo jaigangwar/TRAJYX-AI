@@ -6,8 +6,12 @@ import { cn } from "@/lib/cn";
 
 interface KpiProps {
   label: string;
-  /** A counted integer, or a `Metric` when availability matters. */
-  value: number | Metric | null | undefined;
+  /**
+   * A counted integer, a `Metric` when availability matters, or an
+   * already-formatted string for values a number cannot carry — a clock time
+   * such as "19:00", for instance.
+   */
+  value: number | string | Metric | null | undefined;
   unit?: string;
   /** Small line under the value. */
   note?: string;
@@ -41,6 +45,8 @@ export function Kpi({ label, value, unit, note, tone = "neutral", className }: K
     }
   } else if (typeof value === "number") {
     display = formatNumber(value);
+  } else if (typeof value === "string") {
+    display = value;
   } else {
     display = "—";
     unavailableReason = "Not available yet.";

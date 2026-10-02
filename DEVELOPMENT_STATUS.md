@@ -4,30 +4,251 @@ This file is the authoritative record of what is implemented, what is not, and
 what was actually verified. It is updated at the end of every phase.
 
 Anything not listed as complete below does not exist, regardless of how the
-interface may look.
+interface may look. What is *not* built, and how to build it, is recorded in
+[`REMAINING.md`](REMAINING.md).
 
-**Last updated:** Phase 1 completion
-**Current phase:** 1 of 20 — complete
-**Next phase:** 2 — Web dashboard foundation
+**Last updated:** 2 October 2026 — ML workflow and calibrated 3D replay added
+**Complete:** Phases 0–8, 10–12, 16; phase 9 training/evaluation tooling is implemented
+but has no labelled data or evaluated model; phase 17 has a presentation simulation
+prototype, not the full seeded demo flow.
+**Deferred:** Phases 13–15 (driver mobile features), by request. Production
+deployment/hardening and parts of phase 20 remain — see `REMAINING.md`.
 
 ## Verification summary
 
-`python scripts/verify.py` — 9/9 checks pass.
+Last recorded full baseline: `python scripts/verify.py` — 9/9 checks and 341
+automated tests passed before the latest work. This update's web production
+build passed; automated tests were not rerun. The configured Python launcher
+currently points to an inaccessible Windows Store runtime, so Python compile
+and ML workflow checks could not be run in this environment.
 
 | Component | Check | Result |
 |-----------|-------|--------|
 | contracts | generated bindings current | PASS |
 | lint | ruff (backend, cv, ml, scripts, tests) | PASS — 0 findings |
-| python | pytest | PASS — 153 tests |
+| python | pytest | PASS — 274 tests |
 | web | oxlint | PASS — 0 warnings |
 | web | tsc typecheck (strict) | PASS — 0 errors |
-| web | vitest | PASS — 44 tests |
+| web | vitest | PASS — 48 tests |
 | web | production build | PASS |
 | mobile | dart analyze | PASS — 0 issues |
 | mobile | flutter test | PASS — 19 tests |
 
-**216 automated tests.** Plus a real-browser end-to-end sign-in check
-(`web/scripts/e2e-login.mjs`, 7/7).
+**341 automated tests in the last full baseline.** Plus real-browser verification via Playwright:
+sign-in (`web/scripts/e2e-login.mjs`, 7/7), page rendering
+(`web/scripts/shots.mjs`), and the report export download
+(`web/scripts/shot-reports.mjs`).
+
+### Web application — 13 dashboard sections
+
+| Page | State |
+|---|---|
+| Overview | Counted KPIs, recent events, pipeline readiness |
+| Live Monitoring | Camera registry and status. No RTSP ingest — the page does not claim live streams |
+| Video Analysis | Upload, progress, annotated playback, 2D timeline, calibrated 3D conflict replay, explainable risk readout |
+| Simulation | Synthetic junction replay with explicit DEMO labels and playback controls |
+| Cameras | Registry CRUD, geometry configuration, detector capability gating |
+| Risk Map | MapLibre GIS: risk-coloured segments, computed zones, camera coverage, alert-engine probe |
+| Violations / Near Misses / Incidents | Three views over the one shared event model |
+| Analytics | Hourly/weekday/daily activity, mean risk by hour, breakdowns, detector coverage, segment ranking |
+| Reports | Five report types, stored history, CSV + JSON export |
+| Model Health | Registry derived from actual runs, measured latency, refused accuracy |
+| Settings | Deployment state, adapter backends, retention |
+
+No placeholder page is left. `PhasePendingPage` was deleted when the last
+section it stood in for was built.
+
+## Phase 12 — Calibrated 3D conflict replay · IMPLEMENTED
+
+- The analysis record keeps the camera calibration snapshot used by that run.
+  If the video dimensions do not match configured camera dimensions, the
+  snapshot is withheld and the 3D tab stays disabled.
+- A lazy-loaded Three.js view places each calibrated path on an estimated
+  ground plane and uses height for time. Near-miss entries mark the replay;
+  orbit controls are manual and all geometries/materials/renderer resources
+  are disposed on unmount.
+- The 2D timeline remains available and is selected when WebGL cannot start.
+  Pixel paths are never presented at a guessed metric scale.
+- Production web build passes. Representative-camera and interactive browser
+  verification remain outstanding.
+
+## Phase 9 — ML training and evaluation workflow · PARTIAL
+
+- Implemented one feature builder for both offline training and later
+  inference, with explicit missing-feature flags.
+- Added versioned JSONL-to-CSV dataset assembly, whole-segment plus future-time
+  holdout, XGBoost training, evaluation (MAE/RMSE/R² and risk-band
+  precision/recall/F1/calibration), and a model artifact loader.
+- No model has been trained or evaluated: the repository has no independently
+  labelled risk corpus. The evaluation workflow refuses undersized splits;
+  synthetic demo records and weighted-engine outputs are not ground truth.
+- Input format and reproducible commands: [`docs/ml-training.md`](docs/ml-training.md).
+- Prediction API and model registry integration remain pending. Live risk
+  alerts continue to use the explainable weighted engine.
+
+---
+
+## Phase 16 — Reports & export · COMPLETE
+
+- `ReportService` builds five report types — daily operations, weekly summary,
+  road safety, violation register, risk hotspots — over the **same** analytics
+  aggregation the Analytics page uses, so a report and the page for the same
+  window cannot disagree.
+- A report is a list of titled tables, so the web view, the CSV writer and the
+  JSON export are one implementation rather than three, and a new report type
+  adds a builder rather than a new endpoint, schema and exporter.
+- Each run is **persisted with its parameters** and rendered from the stored
+  document, never re-computed on open. A report whose numbers change when
+  reopened is not a record of anything — verified by a test that adds events
+  after generation and asserts the stored figure does not move.
+- Sections that cannot be computed are **kept and marked unavailable** rather
+  than dropped, so a reader is never left guessing whether a missing section
+  means "nothing happened" or "we cannot tell".
+- CSV carries a provenance header: generated-at, account, window, period,
+  record count, synthetic count, and an explicit `NOTE` line when any record
+  is synthetic. Absent values stay empty cells — never 0, which a spreadsheet
+  would happily average.
+- `Content-Disposition` is exposed through CORS, so the browser saves the
+  server-named file (`trajyx-road-safety-20260912-1256.csv`) rather than a
+  fallback. Verified by a real download in Playwright.
+
+**Endpoints:** `GET /reports/types`, `GET /reports`, `POST /reports`,
+`GET /reports/{id}`, `GET /reports/{id}/export?format=csv|json`
+
+---
+
+## Phase 11 — Analytics · COMPLETE
+
+- One endpoint (`GET /analytics/summary`) serves the whole page from a single
+  read of the event window. Per-chart endpoints would re-read the same events
+  for every panel, and would let two panels on one screen describe different
+  windows.
+- Activity by hour of day, by weekday and by day; events by type, category,
+  severity and origin; traffic composition from detections; detector coverage;
+  road segments ranked by risk.
+- **A bucket with no scored event reports `mean_risk: null`** and the chart
+  draws a hatched slot, not a zero bar. An hour in which nothing was scored
+  and an hour in which everything scored zero are different facts about a
+  road.
+- **Helmet compliance rate is refused**, with the reason: the violation count
+  is known, the rider population is not, so the denominator is unknown.
+  `violations / detections` would look like a compliance rate and would not be
+  one.
+- Traffic composition distinguishes **"no analysis ran"** from **"analysis ran
+  and classified no vehicles"** — different problems to go and investigate.
+- Chart primitives are hand-rolled SVG (`web/src/components/charts/Charts.tsx`)
+  rather than a charting library: a trend line breaks across a gap instead of
+  interpolating through it, which is how a chart comes to assert something
+  nobody measured.
+
+---
+
+## Model registry & health · COMPLETE
+
+- A model version appears **because an analysis run used it**, not because a
+  row was added. The registry is structurally unable to list a model the
+  platform has never executed.
+- Measured inference latency — mean, median, p95, slowest. p95 is nearest-rank,
+  so it is always a figure some run actually produced rather than an
+  interpolated value between two runs.
+- **Precision, recall and F1 are reported as unavailable** unless a recorded
+  evaluation run against a *named dataset* produced them. A registry record
+  with no `dataset_version` is ignored. Detection confidence is never
+  substituted — it is the model's own certainty, not a measure of correctness.
+- Health is derived only from what is measured: job failure rate and inference
+  speed, with the thresholds stated on the page. A model marked HEALTHY is
+  fast and does not crash; the page says in as many words that this is not a
+  claim about whether its detections are correct.
+- **No figure is borrowed between components.** ByteTrack does not inherit the
+  detector's version (shows "version not recorded") or its per-frame latency
+  (reported unavailable, health `UNKNOWN`). Both were bugs found during
+  verification of this phase; both are now regression-tested.
+
+---
+
+## Phase 10 — GIS risk heatmap & driver alerts · COMPLETE
+
+- `GeoService`: haversine distance, bearing clockwise from north,
+  equirectangular segment projection, bounding-box pre-filter, `is_ahead`
+  direction gate.
+- Event attribution to road segments within 60 m; zone aggregation at a 140 m
+  influence radius. Aggregation **clears zones first**, so a segment that goes
+  quiet stops warning drivers. Only non-LOW segments become zones. A zone
+  inherits `origin=DEMO` if any source event was synthetic.
+- Explainable risk engine with weighted named factors summing to 100 and
+  documented saturating references. The references were recalibrated after
+  discovering the originals were roughly 100x too high, which made every real
+  road score LOW and meant **zero risk zones were ever created — the system
+  would never have warned anybody.**
+- Driver alert engine with four gates: distance per alert level, direction
+  (ahead only), minimum risk threshold, and per-user-per-zone cooldown. All
+  four verified against a live API.
+- Risk Map page with MapLibre, no API key required. Clicking empty map probes
+  the alert engine at that point, which is how an operator checks what a
+  driver would actually be told there.
+
+**Notable bug:** the risk overlay rendered nothing while every source and
+layer existed and the API returned correct data. The cause was Vite's
+dependency optimiser rewriting MapLibre's entry without copying the sibling
+module worker it spawns, so the worker request failed **silently** — no error
+event, no console output — leaving every GeoJSON source permanently unparsed
+while the raster basemap drew normally. Isolated by adding a fresh source and
+layer with inline data and a static colour, which also rendered nothing, ruling
+out the paint expressions and the React sync. Fixed with `optimizeDeps.exclude`
+and documented in `web/vite.config.ts`.
+
+---
+
+## Phases 3–8 — Video analysis pipeline · COMPLETE
+
+Upload with size and type validation → async job with progress → decode →
+YOLO detection → ByteTrack → motion estimation → safety detectors → pairwise
+conflicts and TTC → explainable risk. Annotated video written with persistent
+track IDs and trails.
+
+Detectors are **capability-gated on camera geometry**: calibration, lane
+regions, stop line and signal phase each determine which checks can run, and
+unavailable checks are reported with reasons rather than silently skipped.
+
+Five real bugs were found by running the pipeline on a clip and inspecting the
+output, rather than by trusting the tests:
+
+| Bug | Cause | Fix and effect |
+|---|---|---|
+| Wrong-way undetectable by construction | Compared heading to the *closest* lane's heading | Lane regions plus position-based lane selection |
+| 52 phantom hard-brakes | 34 m/s² accelerations from unsmoothed speed | Speed smoothing and a plausibility gate; 52 → 5 |
+| Lane-change misfires | Frame-clipped bounding-box width (a 78px car read as 11px) | Median width across the track |
+| 24 near misses in 12 s | Gap jitter | Gap smoothing, convergence requirement, 2-frame persistence; 24 → 9 |
+| Nothing tracked at all | ByteTrack's published `0.8` is a threshold on a `1 - IoU` cost matrix, not an IoU score | Set to `0.25`, with the reasoning documented in `cv/trajyx_cv/tracking/base.py` |
+
+---
+
+## Phase 2 — Web dashboard foundation · COMPLETE
+
+- Authenticated shell: sidebar navigation grouped by Operations / Intelligence
+  / Administration, page header with deployment badges (demo mode, data
+  backend, environment), theme toggle, role-aware menu.
+- The route table reads its role lists **from the navigation table**, so the
+  menu and the router cannot disagree — a test asserts the two agree, and a
+  deep link cannot reach a section the sidebar hides. The API enforces the
+  same boundaries independently.
+- Four explicit data states everywhere (`AsyncBoundary`): loading skeletons,
+  empty with a hint about what would fill it, actionable error carrying the
+  API envelope's code and message, and loaded.
+- **One shared event model.** Violations, near misses, driver reports and
+  behaviour events are one collection with one shape, so the three list pages,
+  the map layers and the exports are all views over the same query path rather
+  than parallel implementations. `category` and `risk_level` are derived on
+  read, never stored.
+- `Metric` type with `available: false` plus `unavailable_reason`, rendered as
+  `—` with the reason in a tooltip. Tested: a metric nothing has produced must
+  not render as 0.
+- Camera registry with status, location, and the geometry that decides which
+  detectors can run.
+- Design language fixed in `web/src/styles/tokens.css` — dense operations
+  console, plain hex risk palette, no gradients, no glassmorphism, risk always
+  carried by colour **and** a text label so colour is never the only carrier
+  of meaning.
 
 ---
 

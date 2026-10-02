@@ -1,58 +1,80 @@
+# TRAJYX ignore rules.
+#
+# Order matters: git applies the LAST matching rule, so every negation (`!`)
+# must come after the broad pattern it carves an exception out of. This file
+# was once sorted alphabetically, which put `!datasets/samples/*.mp4` above
+# `*.mp4` and silently killed the negation — the sample clip the demo pipeline
+# runs on stopped being tracked. Keep the sections, and keep each negation
+# directly under its pattern.
 
-!*serviceAccount*.example.json
-!.vscode/extensions.json
-!datasets/raw/.gitkeep
-!datasets/samples/*.mp4
-!models/artifacts/.gitkeep
-!models/weights/.gitkeep
-# ---- Flutter / Dart ----
-# ---- Node ----
-# ---- OS / editor ----
-# ---- Python ----
-# ---- Runtime data / artifacts ----
 # ---- Secrets ----
-*.avi
-*.egg-info/
-*.iml
-*.mkv
-*.mp4
-*.py[cod]
-*.tsbuildinfo
-*serviceAccount*.json
-.DS_Store
-.coverage
 .env
-.env.*.local
 .env.local
-.firebase/
-.idea/
+.env.*.local
+*serviceAccount*.json
+!*serviceAccount*.example.json
+firebase/service-account.json
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
-.venv/
-.verify/
-.vite/
-.vscode/*
-Thumbs.db
-__pycache__/
-coverage/
-data/
-datasets/raw/*
-dist-ssr/
-dist/
-firebase/service-account.json
+.coverage
 htmlcov/
+var/
+
+# ---- Node / web ----
+node_modules/
+dist/
+dist-ssr/
+.vite/
+*.tsbuildinfo
+coverage/
+
+# ---- Flutter / Dart ----
 mobile/.dart_tool/
 mobile/.flutter-plugins
 mobile/.flutter-plugins-dependencies
+mobile/build/
 mobile/android/.gradle/
 mobile/android/local.properties
-mobile/build/
 mobile/ios/Pods/
-models/artifacts/*
-models/weights/*
-node_modules/
+*.iml
+
+# ---- Runtime data & artifacts ----
+# Local adapter stores and uploaded footage: machine-specific, and the
+# credential store lives here, so it must never be committed or shared.
+data/
 storage/
-var/
-venv/
+.verify/
+.firebase/
+
+# Model weights are large and downloaded on first run.
+models/weights/*
+!models/weights/.gitkeep
+models/artifacts/*
+!models/artifacts/.gitkeep
 yolov8n.pt
+
+# ---- Video ----
+# Footage is large and often sensitive. The one exception is the committed
+# sample clip, which the pipeline verification and the demo script both need.
+*.mp4
+*.avi
+*.mkv
+!datasets/samples/*.mp4
+
+datasets/raw/*
+!datasets/raw/.gitkeep
+
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

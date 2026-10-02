@@ -9,5 +9,8 @@ description = "TRAJYX risk-model training, evaluation and inference."
 requires-python = ">=3.10"
 dependencies = ["numpy>=1.26", "trajyx-shared"]
 
+[project.optional-dependencies]
+training = ["pandas>=2.2", "scikit-learn>=1.6", "xgboost>=2.1"]
+
 [tool.setuptools.packages.find]
 include = ["trajyx_ml*"]

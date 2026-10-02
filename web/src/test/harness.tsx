@@ -75,6 +75,116 @@ export const SUMMARY_PAYLOAD = {
   recent_events: [] as unknown[],
 };
 
+const unavailable = (reason: string, unit: string | null = null) => ({
+  value: null,
+  available: false,
+  unavailable_reason: reason,
+  unit,
+});
+const measured = (value: number, unit: string | null = null) => ({
+  value,
+  available: true,
+  unavailable_reason: null,
+  unit,
+});
+
+/**
+ * Analytics payload for the Analytics page tests.
+ *
+ * Deliberately mixed: some figures measured, some genuinely uncomputable, and
+ * one hour that recorded events but scored none of them. That last case is the
+ * one worth a fixture — it is the shape that tempts a dashboard into drawing a
+ * zero where it has no measurement.
+ */
+export const ANALYTICS_PAYLOAD = {
+  generated_at: "2026-09-12T10:00:00Z",
+  window_hours: 168,
+  window_label: "7 days",
+  demo_mode: true,
+  totals: {
+    events: 40,
+    violations: 12,
+    behaviour: 20,
+    interactions: 8,
+    reports: 0,
+    near_misses: 6,
+    critical: 3,
+    scored_events: 30,
+    mean_risk: measured(62.4),
+    demo_events: 10,
+  },
+  by_hour: Array.from({ length: 24 }, (_, hour) => ({
+    key: String(hour).padStart(2, "0"),
+    label: `${String(hour).padStart(2, "0")}:00`,
+    events: hour === 8 ? 12 : hour === 18 ? 9 : hour === 3 ? 4 : 0,
+    near_misses: hour === 18 ? 3 : 0,
+    violations: hour === 8 ? 5 : 0,
+    // 03:00 saw events but nothing scored: the chart must draw a gap, not a 0.
+    mean_risk: hour === 8 ? 71.2 : hour === 18 ? 58.0 : null,
+    scored_events: hour === 8 ? 12 : hour === 18 ? 9 : 0,
+  })),
+  by_weekday: Array.from({ length: 7 }, (_, index) => ({
+    key: String(index),
+    label: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][index]!,
+    events: index === 4 ? 14 : 2,
+    near_misses: 1,
+    violations: 1,
+    mean_risk: index === 4 ? 66.0 : null,
+    scored_events: index === 4 ? 14 : 0,
+  })),
+  by_day: [
+    { key: "2026-09-11", label: "11 Sep", events: 18, near_misses: 3, violations: 6, mean_risk: 64.0, scored_events: 15 },
+    { key: "2026-09-12", label: "12 Sep", events: 22, near_misses: 3, violations: 6, mean_risk: 61.0, scored_events: 15 },
+  ],
+  by_event_type: {
+    slices: [
+      { key: "HARD_BRAKING", label: "Hard braking", count: 20, share: 0.5 },
+      { key: "NEAR_MISS", label: "Near miss", count: 6, share: 0.15 },
+    ],
+    total: 26,
+    available: true,
+    unavailable_reason: null,
+  },
+  by_category: {
+    slices: [{ key: "VIOLATION", label: "Violation", count: 12, share: 1 }],
+    total: 12,
+    available: true,
+    unavailable_reason: null,
+  },
+  by_severity: {
+    slices: [{ key: "MAJOR", label: "Major", count: 12, share: 1 }],
+    total: 12,
+    available: true,
+    unavailable_reason: null,
+  },
+  by_origin: {
+    slices: [
+      { key: "MEASURED", label: "Measured", count: 30, share: 0.75 },
+      { key: "DEMO", label: "Demo", count: 10, share: 0.25 },
+    ],
+    total: 40,
+    available: true,
+    unavailable_reason: null,
+  },
+  traffic_composition: {
+    slices: [],
+    total: 0,
+    available: false,
+    unavailable_reason:
+      "No video has been analysed in this window, so no vehicle classes have been counted.",
+  },
+  peak_hour: measured(8, "hour"),
+  peak_hour_events: measured(12, "events"),
+  helmet_violations: measured(4),
+  helmet_compliance_rate: unavailable(
+    "A compliance rate needs a rider count, and no deployed model classifies riders, so the denominator is unknown.",
+    "%",
+  ),
+  mean_inference_ms: unavailable("No analysis run in this window recorded an inference time.", "ms"),
+  detector_coverage: [],
+  top_segments: [],
+};
+
 export function userFor(role: Role, overrides: Partial<User> = {}): User {
   return {
     id: `user-${role.toLowerCase()}`,
@@ -172,6 +282,7 @@ export function renderAsRole(role: Role, path: string, extraStubs: RouteStub[] =
     { match: "/dashboard/camera-grid", body: { items: [], total: 0 } },
     { match: "/cameras", body: { items: [], next_cursor: null } },
     { match: "/events", body: { items: [], next_cursor: null } },
+    { match: "/analytics/summary", body: ANALYTICS_PAYLOAD },
     ...extraStubs,
   ]);
   return renderApp(path);
